@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Railway Betting Bot Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 30px;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .label {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .value {
+      font-size: 24px;
+      font-weight: bold;
+      word-break: break-word;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 15px;
+      cursor: pointer;
+      margin-bottom: 24px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .logs {
+      background: #030712;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 16px;
+      height: 360px;
+      overflow-y: auto;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+    }
+
+    .log-line {
+      border-bottom: 1px solid #1f2937;
+      padding: 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Railway Betting Bot Dashboard</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Status</div>
+      <div class="value" id="status">...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Mode</div>
+      <div class="value" id="mode">...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Market ID</div>
+      <div class="value" id="marketId">...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Buy amount</div>
+      <div class="value" id="buyAmount">...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">RSI</div>
+      <div class="value" id="rsi">...</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Signal</div>
+      <div class="value" id="signal">...</div>
+    </div>
+  </div>
+
+  <button onclick="runBotOnce()">Run bot once</button>
+
+  <h2>Logs</h2>
+  <div class="logs" id="logs"></div>
+
+  <script>
+    async function loadStatus() {
+      const response = await fetch("/api/status");
+      const data = await response.json();
+
+      document.getElementById("status").textContent = data.botState.status;
+      document.getElementById("mode").textContent = data.botState.mode;
+      document.getElementById("marketId").textContent = data.botState.marketId;
+      document.getElementById("buyAmount").textContent = data.botState.buyAmount + " USDC";
+      document.getElementById("rsi").textContent = data.botState.rsi;
+      document.getElementById("signal").textContent = data.botState.signal;
+
+      const logsElement = document.getElementById("logs");
+      logsElement.innerHTML = "";
+
+      data.logs.forEach((line) => {
+        const div = document.createElement("div");
+        div.className = "log-line";
+        div.textContent = line;
+        logsElement.appendChild(div);
+      });
+    }
+
+    async function runBotOnce() {
+      await fetch("/api/run-once", {
+        method: "POST",
+      });
+
+      await loadStatus();
+    }
+
+    loadStatus();
+    setInterval(loadStatus, 3000);
+  </script>
+</body>
+</html>
