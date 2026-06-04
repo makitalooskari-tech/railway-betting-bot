@@ -3,76 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Railway Betting Bot Dashboard</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111827;
-      color: #e5e7eb;
-      margin: 0;
-      padding: 30px;
-    }
-
-    h1 {
-      margin-top: 0;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .card {
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 18px;
-    }
-
-    .label {
-      color: #9ca3af;
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-
-    .value {
-      font-size: 24px;
-      font-weight: bold;
-      word-break: break-word;
-    }
-
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 12px 18px;
-      font-size: 15px;
-      cursor: pointer;
-      margin-bottom: 24px;
-    }
-
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    .logs {
-      background: #030712;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 16px;
-      height: 360px;
-      overflow-y: auto;
-      font-family: Consolas, monospace;
-      font-size: 14px;
-    }
-
-    .log-line {
-      border-bottom: 1px solid #1f2937;
-      padding: 6px 0;
-    }
-  </style>
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <h1>Railway Betting Bot Dashboard</h1>
@@ -109,44 +40,162 @@
     </div>
   </div>
 
-  <button onclick="runBotOnce()">Run bot once</button>
+
+
+
+<section class="section-card">
+  <h2>Luo OrderBotti</h2>
+
+  <div class="form-grid">
+    <label>
+      <span>Nimi</span>
+      <input id="orderRuleName" type="text" value="XRP päivätoimeksianto" />
+    </label>
+
+    <label>
+      <span>Markkinatyyppi</span>
+      <select id="orderMarketQuery">
+        <option value="XRP_UP_DOWN_DAILY">XRP Up/Down Daily</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Asetus 3: Valittava puoli</span>
+      <select id="orderOutcome">
+        <option value="">Valitse puoli</option>
+        <option value="UP">UP</option>
+        <option value="DOWN">DOWN</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Asetus 4: Ostosumma</span>
+      <select id="orderAmountPreset">
+        <option value="1">1 $</option>
+        <option value="2">2 $</option>
+        <option value="3">3 $</option>
+        <option value="4">4 $</option>
+        <option value="5" selected>5 $</option>
+        <option value="6">6 $</option>
+        <option value="7">7 $</option>
+        <option value="8">8 $</option>
+        <option value="9">9 $</option>
+        <option value="10">10 $</option>
+        <option value="custom">Määritä itse</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Itse määritelty ostosumma</span>
+      <input
+        id="orderAmountCustom"
+        type="number"
+        min="1"
+        max="10"
+        step="0.01"
+        value="5.00"
+      />
+    </label>
+
+    <label>
+      <span>Asetus 1: Aikaehto</span>
+      <select id="orderScheduleType">
+        <option value="none">Älä käytä</option>
+        <option value="daily">Kerran vuorokaudessa</option>
+        <option value="exact_time">Osta klo</option>
+        <option value="before_time">Osta ennen klo</option>
+        <option value="after_time">Osta jälkeen klo</option>
+        <option value="time_window">Osta aikavälillä</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Kellonaika</span>
+      <input id="orderTimeFi" type="time" value="06:00" />
+    </label>
+
+    <label>
+      <span>Alkaa / jälkeen klo</span>
+      <input id="orderStartTimeFi" type="time" value="07:30" />
+    </label>
+
+    <label>
+      <span>Päättyy / ennen klo</span>
+      <input id="orderEndTimeFi" type="time" value="12:00" />
+    </label>
+
+    <label>
+      <span>Asetus 2: Hintaehto</span>
+      <select id="orderPriceConditionMode">
+        <option value="none">Älä käytä</option>
+        <option value="above">Hinta ylittää tai on yhtä suuri</option>
+        <option value="below">Hinta alittaa tai on yhtä suuri</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Tavoitehinta</span>
+      <input
+        id="orderTargetPrice"
+        type="number"
+        min="0"
+        max="1"
+        step="0.01"
+        value="0.70"
+      />
+    </label>
+  </div>
+
+  <div class="controls">
+    <button id="createOrderRuleButton">Luo toimeksianto</button>
+    <button id="runOrderSchedulerButton">Tarkista OrderBotit nyt</button>
+  </div>
+
+  <p class="muted">
+    Tämä on vielä DRY RUN -tila. Botti ei osta oikeasti mitään.
+  </p>
+</section>
+
+<h2>OrderBotit</h2>
+<div class="panel" id="orderRules">
+  Ei OrderBotteja vielä.
+</div>
+
+
+
+
+
+
+
+  <div class="controls">
+    <button id="runBotButton">Run bot once</button>
+
+    <input
+      id="polymarketSearchInput"
+      type="text"
+      value="bitcoin"
+      placeholder="Search market, e.g. bitcoin, xrp, ethereum"
+    />
+
+    <button id="searchMarketsButton">Search markets</button>
+
+    <button id="testPolymarketAuthButton">Test Polymarket auth</button>
+
+    <button id="testPolymarketClientButton">Test Polymarket client</button>
+
+  </div>
+
+  <h2>Polymarket markets</h2>
+  <div class="panel" id="polymarketResults">
+    No Polymarket results yet.
+  </div>
 
   <h2>Logs</h2>
-  <div class="logs" id="logs"></div>
+  <div class="panel" id="logs"></div>
 
-  <script>
-    async function loadStatus() {
-      const response = await fetch("/api/status");
-      const data = await response.json();
-
-      document.getElementById("status").textContent = data.botState.status;
-      document.getElementById("mode").textContent = data.botState.mode;
-      document.getElementById("marketId").textContent = data.botState.marketId;
-      document.getElementById("buyAmount").textContent = data.botState.buyAmount + " USDC";
-      document.getElementById("rsi").textContent = data.botState.rsi;
-      document.getElementById("signal").textContent = data.botState.signal;
-
-      const logsElement = document.getElementById("logs");
-      logsElement.innerHTML = "";
-
-      data.logs.forEach((line) => {
-        const div = document.createElement("div");
-        div.className = "log-line";
-        div.textContent = line;
-        logsElement.appendChild(div);
-      });
-    }
-
-    async function runBotOnce() {
-      await fetch("/api/run-once", {
-        method: "POST",
-      });
-
-      await loadStatus();
-    }
-
-    loadStatus();
-    setInterval(loadStatus, 3000);
-  </script>
+  
+  <script type="module" src="/js/app.js"></script>
+  <script type="module" src="/js/polymarket-auth.js"></script>
+  <script type="module" src="/js/polymarket-client-test.js"></script>
 </body>
 </html>

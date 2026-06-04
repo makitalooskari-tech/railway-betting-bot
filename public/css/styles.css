@@ -1,0 +1,169 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #111827;
+  color: #e5e7eb;
+  margin: 0;
+  padding: 30px;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+h2 {
+  margin-top: 32px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.label {
+  color: #9ca3af;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.value {
+  font-size: 24px;
+  font-weight: bold;
+  word-break: break-word;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+input {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: #030712;
+  color: white;
+  font-size: 15px;
+  width: 320px;
+}
+
+.panel {
+  background: #030712;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 220px;
+  max-height: 420px;
+  overflow-y: auto;
+  font-family: Consolas, monospace;
+  font-size: 14px;
+}
+
+.log-line {
+  border-bottom: 1px solid #1f2937;
+  padding: 8px 0;
+}
+
+.market-card {
+  border-bottom: 1px solid #1f2937;
+  padding: 12px 0;
+}
+
+.market-title {
+  font-weight: bold;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.market-detail {
+  color: #d1d5db;
+  margin: 2px 0;
+}
+
+.muted {
+  color: #9ca3af;
+}
+
+
+.section-card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 28px 0;
+}
+
+.section-card h2 {
+  margin-top: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #d1d5db;
+  font-size: 14px;
+}
+
+.form-grid label span {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.form-grid input,
+.form-grid select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: #030712;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.danger-button {
+  background: #dc2626;
+  margin-top: 12px;
+}
+
+.danger-button:hover {
+  background: #b91c1c;
+}
+
+.order-rule-card {
+  border-bottom: 1px solid #1f2937;
+  padding: 14px 0;
+}
