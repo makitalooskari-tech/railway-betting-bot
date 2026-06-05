@@ -250,6 +250,27 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+//DEBUGGAUS
+
+app.get("/api/env-check", (req, res) => {
+  res.json({
+    DRY_RUN: process.env.DRY_RUN ?? null,
+    MAX_BUY_AMOUNT: process.env.MAX_BUY_AMOUNT ?? null,
+    MAX_DAILY_BUY_AMOUNT: process.env.MAX_DAILY_BUY_AMOUNT ?? null,
+    MAX_BUY_PRICE: process.env.MAX_BUY_PRICE ?? null,
+
+    MARKET_ID: process.env.MARKET_ID ?? null,
+    BUY_AMOUNT: process.env.BUY_AMOUNT ?? null,
+    SIDE: process.env.SIDE ?? null,
+
+    hasPolyPrivateKey: Boolean(process.env.POLY_PRIVATE_KEY),
+    hasPolyFunderAddress: Boolean(process.env.POLY_FUNDER_ADDRESS),
+    hasPolygonRpcUrl: Boolean(process.env.POLYGON_RPC_URL),
+  });
+});
+
+//DEBUGGAUS
+
   app.post("/api/run-once", (req, res) => {
     const botState = runBotOnce();
 
