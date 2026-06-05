@@ -1,7 +1,12 @@
 
 
-import { startOrderScheduler } from "./src/order-scheduler.js";
+
+
+
+
 import "dotenv/config";
+import { startOrderScheduler } from "./src/order-scheduler.js";
+
 import express from "express";
 import { PORT } from "./src/config.js";
 import { addLog } from "./src/logger.js";

@@ -1,11 +1,27 @@
 
 
-
 import { addLog } from "./logger.js";
 
-import { getOrderRules, markOrderRuleTriggered } from "./order-rules.js";
+import {
+  getOrderRules,
+  markOrderRuleTriggered,
+  updateOrderRuleCheckResult,
+} from "./order-rules.js";
 import { simulatePolymarketOrder } from "./polymarket-dry-run-order.js";
 import { resolveOrderPrice } from "./order-price-resolver.js";
+
+import { getTradingMode } from "./trading-mode.js";
+import { placePolymarketLiveBuyOrder } from "./polymarket-live-order.js";
+
+import {
+  canSpendToday,
+  recordDailySpend,
+} from "./order-daily-budget.js";
+
+
+
+
+
 
 function getFinlandTimeParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -219,13 +235,19 @@ async function evaluateRule(rule, nowParts) {
   const timeDecision = isTimeRuleSatisfied(rule, nowParts);
 
   if (!timeDecision.ok) {
-    return {
-      triggered: false,
-      ruleId: rule.id,
-      ruleName: rule.name,
-      reason: timeDecision.reason,
-    };
-  }
+  updateOrderRuleCheckResult(rule.id, {
+    decision: "NO_TRADE",
+    reason: timeDecision.reason,
+    price: null,
+  });
+
+  return {
+    triggered: false,
+    ruleId: rule.id,
+    ruleName: rule.name,
+    reason: timeDecision.reason,
+  };
+}
 
   let priceInfo;
 
@@ -233,6 +255,14 @@ async function evaluateRule(rule, nowParts) {
     priceInfo = await getCurrentPolymarketPrice(rule);
   } catch (error) {
     addLog(`Order scheduler price resolve failed for ${rule.name}: ${error.message}`);
+
+    updateOrderRuleCheckResult(rule.id, {
+    decision: "ERROR",
+    reason: error.message,
+    price: null,
+    });
+
+
 
     return {
       triggered: false,
@@ -245,33 +275,75 @@ async function evaluateRule(rule, nowParts) {
   const priceDecision = isPriceConditionSatisfied(rule, priceInfo.price);
 
   if (!priceDecision.ok) {
-    return {
-      triggered: false,
-      ruleId: rule.id,
-      ruleName: rule.name,
-      price: priceInfo.price,
-      reason: priceDecision.reason,
-    };
-  }
+  updateOrderRuleCheckResult(rule.id, {
+    decision: "NO_TRADE",
+    reason: priceDecision.reason,
+    price: priceInfo.price,
+  });
 
-  const result = simulatePolymarketOrder({
+  return {
+    triggered: false,
+    ruleId: rule.id,
+    ruleName: rule.name,
+    price: priceInfo.price,
+    reason: priceDecision.reason,
+  };
+}
+
+  const tradingMode = getTradingMode();
+const dailyBudgetDecision = canSpendToday(rule.amount.usdc);
+
+if (!dailyBudgetDecision.ok) {
+  addLog(
+    `Daily budget blocked order: ${rule.name}, requested=${dailyBudgetDecision.requestedAmount}, usedToday=${dailyBudgetDecision.usedToday}, max=${dailyBudgetDecision.maxDailyBuyAmount}`
+  );
+
+  return {
+    triggered: false,
+    ruleId: rule.id,
+    ruleName: rule.name,
+    price: priceInfo.price,
+    amountUsdc: rule.amount.usdc,
+    reason: `Daily budget exceeded: ${dailyBudgetDecision.newTotal} > ${dailyBudgetDecision.maxDailyBuyAmount}`,
+  };
+}
+let result;
+
+if (tradingMode.dryRun) {
+  result = simulatePolymarketOrder({
     marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
     outcome: rule.market.outcome,
     price: priceInfo.price,
     amountUsdc: rule.amount.usdc,
   });
-
-  markOrderRuleTriggered(rule.id, nowParts.dateKey);
-
-  return {
-    triggered: true,
-    ruleId: rule.id,
-    ruleName: rule.name,
+} else {
+  result = await placePolymarketLiveBuyOrder({
+    tokenId: priceInfo.outcome.tokenId,
+    marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
+    outcome: rule.market.outcome,
     price: priceInfo.price,
     amountUsdc: rule.amount.usdc,
-    result,
-    reason: `${timeDecision.reason}; ${priceDecision.reason}`,
-  };
+  });
+}
+recordDailySpend(rule.amount.usdc);
+markOrderRuleTriggered(rule.id, nowParts.dateKey);
+updateOrderRuleCheckResult(rule.id, {
+  decision: tradingMode.dryRun ? "DRY_RUN_BUY" : "LIVE_BUY",
+  reason: `${timeDecision.reason}; ${priceDecision.reason}`,
+  price: priceInfo.price,
+});
+
+
+return {
+  triggered: true,
+  ruleId: rule.id,
+  ruleName: rule.name,
+  mode: tradingMode.mode,
+  price: priceInfo.price,
+  amountUsdc: rule.amount.usdc,
+  result,
+  reason: `${timeDecision.reason}; ${priceDecision.reason}`,
+};
 }
 
 export async function runOrderSchedulerOnce() {

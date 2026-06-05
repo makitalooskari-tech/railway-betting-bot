@@ -1,3 +1,7 @@
+
+
+
+import { MAX_DAILY_BUY_AMOUNT } from "./config.js";
 import { addLog } from "./logger.js";
 import {
   loadOrderRulesFromFile,
@@ -259,6 +263,26 @@ function validateRuleCombination(schedule, priceCondition) {
   }
 }
 
+
+function getActiveOrderRulesTotalUsdc() {
+  return orderRules
+    .filter((rule) => rule.enabled && !rule.runtime?.completed)
+    .reduce((sum, rule) => sum + Number(rule.amount?.usdc || 0), 0);
+}
+
+function validateActiveOrderRulesBudget(newAmountUsdc) {
+  const currentTotal = getActiveOrderRulesTotalUsdc();
+  const newTotal = currentTotal + Number(newAmountUsdc);
+
+  if (newTotal > MAX_DAILY_BUY_AMOUNT) {
+    throw new Error(
+      `Active OrderBot total would exceed daily budget: ${newTotal} > ${MAX_DAILY_BUY_AMOUNT} USDC`
+    );
+  }
+}
+
+
+
 export function getOrderRules() {
   return orderRules;
 }
@@ -268,6 +292,9 @@ export function createOrderRule(input) {
   const marketQuery = normalizeMarketQuery(input);
   const outcome = normalizeOutcome(input.outcome);
   const amountUsdc = normalizeAmount(input.amountUsdc ?? input.buyAmount);
+  validateActiveOrderRulesBudget(amountUsdc);
+
+
   const schedule = normalizeSchedule(input);
   const priceCondition = normalizePriceCondition(input);
 
@@ -386,8 +413,44 @@ export function markOrderRuleTriggered(id, dateKey) {
 
 
   persistOrderRules();
-  
+
   addLog(`Order rule marked triggered: ${rule.name}, date=${dateKey}`);
 
   return rule;
 }
+
+
+
+export function getActiveOrderRulesBudgetStatus() {
+  const activeTotalUsdc = getActiveOrderRulesTotalUsdc();
+
+  return {
+    activeTotalUsdc,
+    maxDailyBuyAmount: MAX_DAILY_BUY_AMOUNT,
+    remainingActiveBudgetUsdc: Math.max(
+      0,
+      MAX_DAILY_BUY_AMOUNT - activeTotalUsdc
+    ),
+  };
+}
+
+
+export function updateOrderRuleCheckResult(id, checkResult) {
+  const rule = orderRules.find((item) => item.id === id);
+
+  if (!rule) {
+    throw new Error("Order rule not found");
+  }
+
+  rule.runtime.lastCheckedAt = new Date().toISOString();
+  rule.runtime.lastPrice = checkResult.price ?? null;
+  rule.runtime.lastDecision = checkResult.decision || "checked";
+  rule.runtime.lastDecisionReason = checkResult.reason || null;
+  rule.runtime.updatedAt = new Date().toISOString();
+
+  persistOrderRules();
+
+  return rule;
+}
+
+

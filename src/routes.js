@@ -1,4 +1,7 @@
 
+
+
+
 import { resolveOrderPrice } from "./order-price-resolver.js";
 import { resolveMarketByType } from "./market-resolver.js";
 import { runOrderSchedulerOnce } from "./order-scheduler.js";
@@ -8,6 +11,7 @@ import {
   deleteOrderRule,
   setOrderRuleEnabled,
   stopAllOrderRules,
+  getActiveOrderRulesBudgetStatus,
 } from "./order-rules.js";
 import { testPolymarketBalance } from "./polymarket-balance-test.js";
 import { testPolymarketAccount } from "./polymarket-account-test.js";
@@ -19,6 +23,11 @@ import {
   getLatestPolymarketResults,
 } from "./polymarket.js";
 import { testPolymarketAuthConfig } from "./polymarket-auth.js";
+import { getTradingMode } from "./trading-mode.js";
+import { getDailyBudgetStatus } from "./order-daily-budget.js";
+
+
+
 
 export function createRoutes(app) {
 
@@ -228,12 +237,16 @@ export function createRoutes(app) {
 
 
 
- app.get("/api/status", (req, res) => {
+app.get("/api/status", (req, res) => {
   res.json({
     botState: getBotState(),
+    tradingMode: getTradingMode(),
+    dailyBudget: getDailyBudgetStatus(),
+    activeOrderBudget: getActiveOrderRulesBudgetStatus(),
     logs: getLogs(),
     polymarketResults: getLatestPolymarketResults(),
     orderRules: getOrderRules(),
+    
   });
 });
 

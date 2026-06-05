@@ -5,6 +5,7 @@ import {
   createOrderRuleApi,
   deleteOrderRuleApi,
   runOrderSchedulerOnceApi,
+
 } from "./api.js";
 
 import {
@@ -12,12 +13,20 @@ import {
   renderLogs,
   renderPolymarketResults,
   renderOrderRules,
+  renderTradingMode,
+  renderDailyBudget,
+  renderActiveOrderBudget,
 } from "./render.js";
 
 export async function loadStatus() {
+
+  
   const data = await fetchStatus();
 
   renderBotState(data.botState);
+  renderTradingMode(data.tradingMode);
+  renderDailyBudget(data.dailyBudget);
+  renderActiveOrderBudget(data.activeOrderBudget);
   renderLogs(data.logs);
   renderPolymarketResults(data.polymarketResults);
   renderOrderRules(data.orderRules || []);

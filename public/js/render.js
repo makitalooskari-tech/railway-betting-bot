@@ -1,4 +1,5 @@
 export function renderBotState(botState) {
+
   document.getElementById("status").textContent = botState.status;
   document.getElementById("mode").textContent = botState.mode;
   document.getElementById("marketId").textContent = botState.marketId;
@@ -6,6 +7,27 @@ export function renderBotState(botState) {
   document.getElementById("rsi").textContent = botState.rsi;
   document.getElementById("signal").textContent = botState.signal;
 }
+
+export function renderDailyBudget(dailyBudget) {
+  const element = document.getElementById("dailyBudget");
+
+  if (!element || !dailyBudget) {
+    return;
+  }
+
+  element.textContent =
+    `${dailyBudget.usedUsdc} / ${dailyBudget.maxDailyBuyAmount} USDC`;
+}
+
+
+
+
+
+
+
+
+
+
 
 export function renderLogs(logs) {
   const logsElement = document.getElementById("logs");
@@ -129,6 +151,18 @@ export function renderOrderRules(orderRules) {
         <span class="muted">Decision:</span> ${escapeHtml(rule.runtime?.lastDecision || "n/a")}
       </div>
 
+            <div class="market-detail">
+        <span class="muted">Viimeisin tarkistus:</span> ${escapeHtml(formatDateTime(rule.runtime?.lastCheckedAt))}
+      </div>
+
+      <div class="market-detail">
+        <span class="muted">Viimeisin hinta:</span> ${escapeHtml(rule.runtime?.lastPrice ?? "n/a")}
+      </div>
+
+      <div class="market-detail">
+        <span class="muted">Syy:</span> ${escapeHtml(rule.runtime?.lastDecisionReason || "n/a")}
+      </div>
+
       <button class="danger-button" data-delete-order-rule-id="${escapeHtml(rule.id)}">
         Poista OrderBotti
       </button>
@@ -180,4 +214,49 @@ function formatPriceCondition(priceCondition) {
   }
 
   return `Tuntematon price-ehto: ${priceCondition.mode}`;
+}
+
+
+
+
+
+export function renderTradingMode(tradingMode) {
+  const banner = document.getElementById("tradingModeBanner");
+
+  if (!banner || !tradingMode) {
+    return;
+  }
+
+  banner.textContent = tradingMode.dryRun
+    ? "DRY RUN päällä — oikeita ostoja ei tehdä"
+    : "LIVE MODE päällä — botti voi tehdä oikeita ostoja";
+
+  banner.classList.toggle("live", !tradingMode.dryRun);
+  banner.classList.toggle("dry-run", tradingMode.dryRun);
+}
+
+export function renderActiveOrderBudget(activeOrderBudget) {
+  const element = document.getElementById("activeOrderBudget");
+
+  if (!element || !activeOrderBudget) {
+    return;
+  }
+
+  element.textContent =
+    `${activeOrderBudget.activeTotalUsdc} / ${activeOrderBudget.maxDailyBuyAmount} USDC`;
+}
+
+
+function formatDateTime(value) {
+  if (!value) {
+    return "never";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("fi-FI");
 }
