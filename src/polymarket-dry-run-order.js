@@ -1,9 +1,22 @@
-import { addLog } from "./logger.js";
-import { BUY_AMOUNT, DRY_RUN, MAX_BUY_AMOUNT, MAX_BUY_PRICE } from "./config.js";
 
-export function simulatePolymarketOrder({ marketTitle, outcome, price }) {
+
+
+
+
+import { addLog } from "./logger.js";
+import { DRY_RUN, MAX_BUY_AMOUNT, MAX_BUY_PRICE } from "./config.js";
+
+export function simulatePolymarketOrder({ marketTitle, outcome, price, amountUsdc }) {
   const numericPrice = Number(price);
-  const numericAmount = Number(BUY_AMOUNT);
+  const numericAmount = Number(amountUsdc);
+
+    if (!Number.isFinite(numericAmount)) {
+    return {
+      ok: false,
+      action: "NO_TRADE",
+      reason: "Invalid amountUsdc",
+    };
+  }
 
   if (!DRY_RUN) {
     throw new Error("DRY_RUN is false. Refusing to simulate in unsafe mode.");

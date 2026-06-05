@@ -1,5 +1,7 @@
 export async function fetchStatus() {
-  const response = await fetch("/api/status");
+  const response = await fetch("/api/status?t=" + Date.now(), {
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new Error("Failed to fetch bot status");

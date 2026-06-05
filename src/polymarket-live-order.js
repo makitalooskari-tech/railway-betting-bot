@@ -77,23 +77,49 @@ export async function placePolymarketLiveBuyOrder({
     `LIVE BUY ATTEMPT: ${marketTitle}, outcome=${outcome}, price=${numericPrice}, amount=${numericAmount}, size=${size}`
   );
 
-  const response = await client.createAndPostOrder(
-    {
-      tokenID: tokenId,
-      price: numericPrice,
-      size,
-      side: Side.BUY,
-    },
-    {
-      tickSize: "0.01",
-      negRisk: false,
-    },
-    OrderType.GTC
-  );
+    let response;
 
-  addLog(
-    `LIVE BUY POSTED: ${marketTitle}, outcome=${outcome}, orderID=${response.orderID || "n/a"}, status=${response.status || "n/a"}`
-  );
+  try {
+    response = await client.createAndPostOrder(
+      {
+        tokenID: tokenId,
+        price: numericPrice,
+        size,
+        side: Side.BUY,
+      },
+      {
+        tickSize: "0.01",
+        negRisk: false,
+      },
+      OrderType.GTC
+    );
+
+    addLog(`LIVE BUY RAW RESPONSE: ${JSON.stringify(response)}`);
+
+    if (response?.status && Number(response.status) >= 400) {
+      throw new Error(`Polymarket order rejected: ${JSON.stringify(response)}`);
+    }
+
+    if (!response?.orderID && !response?.id) {
+      throw new Error(`Polymarket order missing order id: ${JSON.stringify(response)}`);
+    }
+
+    addLog(
+      `LIVE BUY POSTED: ${marketTitle}, outcome=${outcome}, orderID=${response.orderID || response.id || "n/a"}, status=${response.status || "n/a"}`
+    );
+  } catch (error) {
+    addLog(`LIVE BUY ERROR MESSAGE: ${error.message}`);
+
+    if (error.response?.data) {
+      addLog(`LIVE BUY ERROR RESPONSE DATA: ${JSON.stringify(error.response.data)}`);
+    }
+
+    if (error.response?.status) {
+      addLog(`LIVE BUY ERROR STATUS: ${error.response.status}`);
+    }
+
+    throw error;
+  }
 
   return {
     ok: true,
