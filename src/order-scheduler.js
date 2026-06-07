@@ -502,6 +502,24 @@ function evaluateDependency(rule, allRules, nowParts) {
   };
 }
 
+function getPolymarketOrderErrorMessage(error) {
+  const responseData = error?.response?.data;
+
+  if (responseData) {
+    if (typeof responseData === "string") {
+      return responseData;
+    }
+
+    try {
+      return JSON.stringify(responseData);
+    } catch {
+      return String(responseData);
+    }
+  }
+
+  return error?.message || "Unknown Polymarket order error";
+}
+
 async function getCurrentPolymarketPrice(rule) {
   const result = await resolveOrderPrice({
     marketTypeId: rule.market.query,
@@ -624,21 +642,66 @@ async function evaluateRule(rule, nowParts, allRules) {
 
   let result;
 
-  if (tradingMode.dryRun) {
-    result = simulatePolymarketOrder({
-      marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
-      outcome: rule.market.outcome,
+  try {
+    if (tradingMode.dryRun) {
+      result = simulatePolymarketOrder({
+        marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
+        outcome: rule.market.outcome,
+        price: priceInfo.price,
+        amountUsdc: rule.amount.usdc,
+      });
+    } else {
+      result = await placePolymarketLiveBuyOrder({
+        tokenId: priceInfo.outcome.tokenId,
+        marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
+        outcome: rule.market.outcome,
+        price: priceInfo.price,
+        amountUsdc: rule.amount.usdc,
+      });
+    }
+  } catch (error) {
+    const reason = tradingMode.dryRun
+      ? `Dry run order failed: ${error.message}`
+      : `Polymarket order rejected: ${getPolymarketOrderErrorMessage(error)}`;
+
+    addLog(`Order execution failed for ${rule.name}: ${reason}`);
+
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "ERROR",
+      reason,
+      price: priceInfo.price,
+    });
+
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      mode: tradingMode.mode,
       price: priceInfo.price,
       amountUsdc: rule.amount.usdc,
+      reason,
+    };
+  }
+
+  if (!result?.ok || result.action === "NO_TRADE") {
+    const reason = result?.reason || "Order was not executed";
+
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "NO_TRADE",
+      reason,
+      price: priceInfo.price,
     });
-  } else {
-    result = await placePolymarketLiveBuyOrder({
-      tokenId: priceInfo.outcome.tokenId,
-      marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
-      outcome: rule.market.outcome,
+
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      mode: tradingMode.mode,
       price: priceInfo.price,
       amountUsdc: rule.amount.usdc,
-    });
+      result,
+      reason,
+    };
   }
 
   recordDailySpend(rule.amount.usdc);
