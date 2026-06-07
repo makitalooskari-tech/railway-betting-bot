@@ -263,6 +263,120 @@ function validateRuleCombination(schedule, priceCondition) {
   }
 }
 
+function normalizeDependency(input) {
+  const dependency = input.dependency;
+
+  if (!dependency || dependency.enabled !== true || !dependency.root) {
+    return {
+      enabled: false,
+      root: null,
+    };
+  }
+
+
+
+
+  function normalizeDependencyItem(item) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    if (item.type === "condition") {
+      const referenceType = normalizeText(item.referenceType) || "existing";
+      const ruleId = normalizeText(item.ruleId);
+      const referenceName = normalizeText(item.referenceName);
+
+      if (referenceType === "existing" && !ruleId) {
+        return null;
+      }
+
+      if (referenceType === "future" && !referenceName) {
+        return null;
+      }
+
+      const priority = Number(item.priority ?? 0);
+
+      return {
+        type: "condition",
+        referenceType,
+        ruleId: referenceType === "existing" ? ruleId : null,
+        referenceName: referenceType === "future" ? referenceName : null,
+        expectedTriggeredToday: Boolean(item.expectedTriggeredToday),
+        priority: Number.isFinite(priority) ? priority : 0,
+      };
+    }
+
+    if (item.type === "group") {
+      const operator = normalizeText(item.operator).toUpperCase() === "OR" ? "OR" : "AND";
+      const items = Array.isArray(item.items)
+        ? item.items.map(normalizeDependencyItem).filter(Boolean)
+        : [];
+
+      return {
+        type: "group",
+        operator,
+        items,
+      };
+    }
+
+    return null;
+  }
+
+
+  const rootOperator =
+    normalizeText(dependency.root.operator).toUpperCase() === "OR" ? "OR" : "AND";
+
+  const rootItems = Array.isArray(dependency.root.items)
+    ? dependency.root.items.map(normalizeDependencyItem).filter(Boolean)
+    : [];
+
+  if (rootItems.length === 0) {
+    return {
+      enabled: false,
+      root: null,
+    };
+  }
+
+  return {
+    enabled: true,
+    root: {
+      type: "group",
+      operator: rootOperator,
+      items: rootItems,
+    },
+  };
+}
+
+
+
+
+
+function normalizeDisplay(input) {
+  const rawColumn =
+    input.displayColumn ??
+    input.display?.column ??
+    input.layout?.column ??
+    1;
+
+  const column = Number(rawColumn);
+
+  if (!Number.isInteger(column) || column < 1 || column > 8) {
+    return {
+      column: 1,
+    };
+  }
+
+  return {
+    column,
+  };
+}
+
+
+
+
+
+
+
 
 function getActiveOrderRulesTotalUsdc() {
   return orderRules
@@ -297,6 +411,8 @@ export function createOrderRule(input) {
 
   const schedule = normalizeSchedule(input);
   const priceCondition = normalizePriceCondition(input);
+  const dependency = normalizeDependency(input);
+  const display = normalizeDisplay(input);
 
   validateRuleCombination(schedule, priceCondition);
 
@@ -315,9 +431,15 @@ export function createOrderRule(input) {
       usdc: amountUsdc,
     },
 
+    
+
     schedule,
 
     priceCondition,
+
+    dependency,
+    
+    display,
 
     runtime: {
       lastTriggeredDate: null,

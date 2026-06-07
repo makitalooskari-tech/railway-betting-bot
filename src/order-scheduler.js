@@ -1,5 +1,3 @@
-
-
 import { addLog } from "./logger.js";
 
 import {
@@ -7,6 +5,7 @@ import {
   markOrderRuleTriggered,
   updateOrderRuleCheckResult,
 } from "./order-rules.js";
+
 import { simulatePolymarketOrder } from "./polymarket-dry-run-order.js";
 import { resolveOrderPrice } from "./order-price-resolver.js";
 
@@ -17,11 +16,6 @@ import {
   canSpendToday,
   recordDailySpend,
 } from "./order-daily-budget.js";
-
-
-
-
-
 
 function getFinlandTimeParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -52,12 +46,16 @@ function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
 function hasRuleAlreadyTriggeredToday(rule, nowParts) {
-  return rule.runtime.lastTriggeredDate === nowParts.dateKey;
+  return rule.runtime?.lastTriggeredDate === nowParts.dateKey;
 }
 
 function isRuleCompleted(rule) {
-  return Boolean(rule.runtime.completed);
+  return Boolean(rule.runtime?.completed);
 }
 
 function isTimeRuleSatisfied(rule, nowParts) {
@@ -214,6 +212,296 @@ function isPriceConditionSatisfied(rule, price) {
   };
 }
 
+function getRuleName(rule) {
+  return normalizeText(rule?.name) || normalizeText(rule?.id) || "Unnamed OrderBot";
+}
+
+function findRuleByDependencyCondition(condition, allRules) {
+  const ruleId = normalizeText(condition.ruleId);
+  const referenceName = normalizeText(condition.referenceName);
+
+  if (ruleId) {
+    return allRules.find((rule) => rule.id === ruleId) || null;
+  }
+
+  if (referenceName) {
+    return allRules.find((rule) => normalizeText(rule.name) === referenceName) || null;
+  }
+
+  return null;
+}
+
+function getDependencyConditionLabel(condition, targetRule) {
+  if (targetRule) {
+    return getRuleName(targetRule);
+  }
+
+  if (condition.referenceName) {
+    return normalizeText(condition.referenceName);
+  }
+
+  if (condition.ruleId) {
+    return normalizeText(condition.ruleId);
+  }
+
+  return "Unknown dependency";
+}
+
+function getRuleLastCheckedTime(rule) {
+  const value = rule?.runtime?.lastCheckedAt;
+
+  if (!value) {
+    return null;
+  }
+
+  const time = new Date(value).getTime();
+
+  if (Number.isNaN(time)) {
+    return null;
+  }
+
+  return time;
+}
+
+function evaluateDependencyCondition(condition, currentRule, allRules, nowParts, context) {
+  const targetRule = findRuleByDependencyCondition(condition, allRules);
+  const label = getDependencyConditionLabel(condition, targetRule);
+  const expectedTriggeredToday = Boolean(condition.expectedTriggeredToday);
+  const priority = Number(condition.priority ?? 0);
+
+  if (!targetRule) {
+    const result = {
+      ok: false,
+      label,
+      priority: Number.isFinite(priority) ? priority : 0,
+      checkedAtTime: null,
+      reason: `Dependency unresolved: ${label}`,
+    };
+
+    context.conditionResults.push(result);
+
+    return result;
+  }
+
+  if (targetRule.id === currentRule.id) {
+    const result = {
+      ok: false,
+      label,
+      priority: Number.isFinite(priority) ? priority : 0,
+      checkedAtTime: getRuleLastCheckedTime(targetRule),
+      reason: `Dependency points to itself: ${label}`,
+    };
+
+    context.conditionResults.push(result);
+
+    return result;
+  }
+
+  const actualTriggeredToday = hasRuleAlreadyTriggeredToday(targetRule, nowParts);
+  const ok = actualTriggeredToday === expectedTriggeredToday;
+
+  const expectedText = expectedTriggeredToday
+    ? "expected triggered today"
+    : "expected not triggered today";
+
+  const actualText = actualTriggeredToday
+    ? "actual triggered today"
+    : "actual not triggered today";
+
+  const result = {
+    ok,
+    label,
+    priority: Number.isFinite(priority) ? priority : 0,
+    checkedAtTime: getRuleLastCheckedTime(targetRule),
+    reason: ok
+      ? `Dependency OK: ${label} ${expectedText}`
+      : `Dependency failed: ${label} ${expectedText}, ${actualText}`,
+  };
+
+  context.conditionResults.push(result);
+
+  return result;
+}
+
+function evaluateDependencyGroup(group, currentRule, allRules, nowParts, context) {
+  const operator = group?.operator === "OR" ? "OR" : "AND";
+  const items = Array.isArray(group?.items) ? group.items : [];
+
+  if (items.length === 0) {
+    return {
+      ok: false,
+      reason: "Dependency group is empty",
+    };
+  }
+
+  const results = items.map((item) =>
+    evaluateDependencyItem(item, currentRule, allRules, nowParts, context)
+  );
+
+  if (operator === "AND") {
+    const failed = results.find((result) => !result.ok);
+
+    if (failed) {
+      return {
+        ok: false,
+        reason: `Dependency AND failed: ${failed.reason}`,
+      };
+    }
+
+    return {
+      ok: true,
+      reason: "Dependency AND satisfied",
+    };
+  }
+
+  const passed = results.find((result) => result.ok);
+
+  if (passed) {
+    return {
+      ok: true,
+      reason: `Dependency OR satisfied: ${passed.reason}`,
+    };
+  }
+
+  return {
+    ok: false,
+    reason: `Dependency OR failed: ${results.map((result) => result.reason).join(" | ")}`,
+  };
+}
+
+function evaluateDependencyItem(item, currentRule, allRules, nowParts, context) {
+  if (!item || typeof item !== "object") {
+    return {
+      ok: false,
+      reason: "Invalid dependency item",
+    };
+  }
+
+  if (item.type === "condition") {
+    return evaluateDependencyCondition(item, currentRule, allRules, nowParts, context);
+  }
+
+  if (item.type === "group") {
+    return evaluateDependencyGroup(item, currentRule, allRules, nowParts, context);
+  }
+
+  return {
+    ok: false,
+    reason: `Unknown dependency item type: ${item.type}`,
+  };
+}
+
+function evaluatePriorityOrder(conditionResults) {
+  const prioritized = conditionResults
+    .filter((result) => Number(result.priority) > 0)
+    .map((result) => ({
+      ...result,
+      priority: Number(result.priority),
+    }));
+
+  if (prioritized.length <= 1) {
+    return {
+      ok: true,
+      reason: "No priority order needed",
+    };
+  }
+
+  const priorities = [...new Set(prioritized.map((result) => result.priority))].sort(
+    (a, b) => a - b
+  );
+
+  const minPriority = priorities[0];
+
+  if (minPriority !== 1) {
+    return {
+      ok: false,
+      reason: `Priority order invalid: first priority must be 1, got ${minPriority}`,
+    };
+  }
+
+  for (const priority of priorities) {
+    if (priority > 1 && !priorities.includes(priority - 1)) {
+      return {
+        ok: false,
+        reason: `Priority order invalid: priority ${priority} requires priority ${priority - 1}`,
+      };
+    }
+  }
+
+  for (const current of prioritized) {
+    if (!current.ok) {
+      continue;
+    }
+
+    const lowerPriorityItems = prioritized.filter(
+      (item) => item.priority > 0 && item.priority < current.priority
+    );
+
+    for (const lower of lowerPriorityItems) {
+      if (!lower.ok) {
+        return {
+          ok: false,
+          reason: `Priority blocked: ${current.label} priority ${current.priority} requires ${lower.label} priority ${lower.priority}`,
+        };
+      }
+
+      if (
+        lower.checkedAtTime !== null &&
+        current.checkedAtTime !== null &&
+        lower.checkedAtTime > current.checkedAtTime
+      ) {
+        return {
+          ok: false,
+          reason: `Priority order failed: ${lower.label} priority ${lower.priority} happened after ${current.label} priority ${current.priority}`,
+        };
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    reason: "Priority order satisfied",
+  };
+}
+
+function evaluateDependency(rule, allRules, nowParts) {
+  const dependency = rule.dependency;
+
+  if (!dependency || dependency.enabled !== true || !dependency.root) {
+    return {
+      ok: true,
+      reason: "No dependency condition",
+    };
+  }
+
+  const context = {
+    conditionResults: [],
+  };
+
+  const groupDecision = evaluateDependencyGroup(
+    dependency.root,
+    rule,
+    allRules,
+    nowParts,
+    context
+  );
+
+  if (!groupDecision.ok) {
+    return groupDecision;
+  }
+
+  const priorityDecision = evaluatePriorityOrder(context.conditionResults);
+
+  if (!priorityDecision.ok) {
+    return priorityDecision;
+  }
+
+  return {
+    ok: true,
+    reason: `${groupDecision.reason}; ${priorityDecision.reason}`,
+  };
+}
+
 async function getCurrentPolymarketPrice(rule) {
   const result = await resolveOrderPrice({
     marketTypeId: rule.market.query,
@@ -231,23 +519,40 @@ async function getCurrentPolymarketPrice(rule) {
   };
 }
 
-async function evaluateRule(rule, nowParts) {
+async function evaluateRule(rule, nowParts, allRules) {
   const timeDecision = isTimeRuleSatisfied(rule, nowParts);
 
   if (!timeDecision.ok) {
-  updateOrderRuleCheckResult(rule.id, {
-    decision: "NO_TRADE",
-    reason: timeDecision.reason,
-    price: null,
-  });
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "NO_TRADE",
+      reason: timeDecision.reason,
+      price: null,
+    });
 
-  return {
-    triggered: false,
-    ruleId: rule.id,
-    ruleName: rule.name,
-    reason: timeDecision.reason,
-  };
-}
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      reason: timeDecision.reason,
+    };
+  }
+
+  const dependencyDecision = evaluateDependency(rule, allRules, nowParts);
+
+  if (!dependencyDecision.ok) {
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "NO_TRADE",
+      reason: dependencyDecision.reason,
+      price: null,
+    });
+
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      reason: dependencyDecision.reason,
+    };
+  }
 
   let priceInfo;
 
@@ -257,12 +562,10 @@ async function evaluateRule(rule, nowParts) {
     addLog(`Order scheduler price resolve failed for ${rule.name}: ${error.message}`);
 
     updateOrderRuleCheckResult(rule.id, {
-    decision: "ERROR",
-    reason: error.message,
-    price: null,
+      decision: "ERROR",
+      reason: error.message,
+      price: null,
     });
-
-
 
     return {
       triggered: false,
@@ -275,75 +578,88 @@ async function evaluateRule(rule, nowParts) {
   const priceDecision = isPriceConditionSatisfied(rule, priceInfo.price);
 
   if (!priceDecision.ok) {
-  updateOrderRuleCheckResult(rule.id, {
-    decision: "NO_TRADE",
-    reason: priceDecision.reason,
-    price: priceInfo.price,
-  });
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "NO_TRADE",
+      reason: priceDecision.reason,
+      price: priceInfo.price,
+    });
 
-  return {
-    triggered: false,
-    ruleId: rule.id,
-    ruleName: rule.name,
-    price: priceInfo.price,
-    reason: priceDecision.reason,
-  };
-}
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      price: priceInfo.price,
+      reason: priceDecision.reason,
+    };
+  }
 
   const tradingMode = getTradingMode();
-const dailyBudgetDecision = canSpendToday(rule.amount.usdc);
+  const dailyBudgetDecision = canSpendToday(rule.amount.usdc);
 
-if (!dailyBudgetDecision.ok) {
-  addLog(
-    `Daily budget blocked order: ${rule.name}, requested=${dailyBudgetDecision.requestedAmount}, usedToday=${dailyBudgetDecision.usedToday}, max=${dailyBudgetDecision.maxDailyBuyAmount}`
-  );
+  if (!dailyBudgetDecision.ok) {
+    const reason =
+      `Daily budget blocked: requested=${dailyBudgetDecision.requestedAmount}, ` +
+      `usedToday=${dailyBudgetDecision.usedToday}, ` +
+      `max=${dailyBudgetDecision.maxDailyBuyAmount}`;
+
+    addLog(
+      `Daily budget blocked order: ${rule.name}, requested=${dailyBudgetDecision.requestedAmount}, usedToday=${dailyBudgetDecision.usedToday}, max=${dailyBudgetDecision.maxDailyBuyAmount}`
+    );
+
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "NO_TRADE",
+      reason,
+      price: priceInfo.price,
+    });
+
+    return {
+      triggered: false,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      price: priceInfo.price,
+      amountUsdc: rule.amount.usdc,
+      reason,
+    };
+  }
+
+  let result;
+
+  if (tradingMode.dryRun) {
+    result = simulatePolymarketOrder({
+      marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
+      outcome: rule.market.outcome,
+      price: priceInfo.price,
+      amountUsdc: rule.amount.usdc,
+    });
+  } else {
+    result = await placePolymarketLiveBuyOrder({
+      tokenId: priceInfo.outcome.tokenId,
+      marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
+      outcome: rule.market.outcome,
+      price: priceInfo.price,
+      amountUsdc: rule.amount.usdc,
+    });
+  }
+
+  recordDailySpend(rule.amount.usdc);
+  markOrderRuleTriggered(rule.id, nowParts.dateKey);
+
+  updateOrderRuleCheckResult(rule.id, {
+    decision: tradingMode.dryRun ? "DRY_RUN_BUY" : "LIVE_BUY",
+    reason: `${timeDecision.reason}; ${dependencyDecision.reason}; ${priceDecision.reason}`,
+    price: priceInfo.price,
+  });
 
   return {
-    triggered: false,
+    triggered: true,
     ruleId: rule.id,
     ruleName: rule.name,
+    mode: tradingMode.mode,
     price: priceInfo.price,
     amountUsdc: rule.amount.usdc,
-    reason: `Daily budget exceeded: ${dailyBudgetDecision.newTotal} > ${dailyBudgetDecision.maxDailyBuyAmount}`,
+    result,
+    reason: `${timeDecision.reason}; ${dependencyDecision.reason}; ${priceDecision.reason}`,
   };
-}
-let result;
-
-if (tradingMode.dryRun) {
-  result = simulatePolymarketOrder({
-    marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
-    outcome: rule.market.outcome,
-    price: priceInfo.price,
-    amountUsdc: rule.amount.usdc,
-  });
-} else {
-  result = await placePolymarketLiveBuyOrder({
-    tokenId: priceInfo.outcome.tokenId,
-    marketTitle: priceInfo.market.question || rule.market.title || rule.market.query,
-    outcome: rule.market.outcome,
-    price: priceInfo.price,
-    amountUsdc: rule.amount.usdc,
-  });
-}
-recordDailySpend(rule.amount.usdc);
-markOrderRuleTriggered(rule.id, nowParts.dateKey);
-updateOrderRuleCheckResult(rule.id, {
-  decision: tradingMode.dryRun ? "DRY_RUN_BUY" : "LIVE_BUY",
-  reason: `${timeDecision.reason}; ${priceDecision.reason}`,
-  price: priceInfo.price,
-});
-
-
-return {
-  triggered: true,
-  ruleId: rule.id,
-  ruleName: rule.name,
-  mode: tradingMode.mode,
-  price: priceInfo.price,
-  amountUsdc: rule.amount.usdc,
-  result,
-  reason: `${timeDecision.reason}; ${priceDecision.reason}`,
-};
 }
 
 export async function runOrderSchedulerOnce() {
@@ -354,7 +670,7 @@ export async function runOrderSchedulerOnce() {
   const checked = [];
 
   for (const rule of rules) {
-    const result = await evaluateRule(rule, nowParts);
+    const result = await evaluateRule(rule, nowParts, rules);
 
     checked.push(result);
 
@@ -381,8 +697,8 @@ export function startOrderScheduler() {
   addLog("Order scheduler started");
 
   setInterval(() => {
-  runOrderSchedulerOnce().catch((error) => {
-    addLog(`Order scheduler error: ${error.message}`);
-  });
-}, 5 * 60 * 1000);
+    runOrderSchedulerOnce().catch((error) => {
+      addLog(`Order scheduler error: ${error.message}`);
+    });
+  }, 5 * 60 * 1000);
 }

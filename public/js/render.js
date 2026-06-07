@@ -1,5 +1,4 @@
 export function renderBotState(botState) {
-
   document.getElementById("status").textContent = botState.status;
   document.getElementById("mode").textContent = botState.mode;
   document.getElementById("marketId").textContent = botState.marketId;
@@ -18,16 +17,6 @@ export function renderDailyBudget(dailyBudget) {
   element.textContent =
     `${dailyBudget.usedUsdc} / ${dailyBudget.maxDailyBuyAmount} USDC`;
 }
-
-
-
-
-
-
-
-
-
-
 
 export function renderLogs(logs) {
   const logsElement = document.getElementById("logs");
@@ -90,30 +79,202 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function getRuleColumn(rule) {
+  const rawColumn = rule?.display?.column ?? 1;
+  const column = Number(rawColumn);
+
+  if (!Number.isInteger(column) || column < 1 || column > 8) {
+    return 1;
+  }
+
+  return column;
+}
+
+function getColumnTarget(column) {
+  if (column === 1) {
+    return document.getElementById("orderRules");
+  }
+
+  return document.getElementById(`orderColumn${column}`);
+}
+
+function clearOrderColumns() {
+  for (let column = 1; column <= 8; column += 1) {
+    const target = getColumnTarget(column);
+
+    if (target) {
+      target.innerHTML = "";
+    }
+  }
+}
+
+function hasDependency(rule) {
+  return Boolean(rule?.dependency?.enabled && rule?.dependency?.root);
+}
+
+function createRuleNameMap(orderRules) {
+  const map = new Map();
+
+  for (const rule of orderRules || []) {
+    if (rule?.id) {
+      map.set(rule.id, rule.name || rule.id);
+    }
+  }
+
+  return map;
+}
+
+function getDependencyConditionName(item, ruleNameMap) {
+  if (item.ruleId && ruleNameMap.has(item.ruleId)) {
+    return ruleNameMap.get(item.ruleId);
+  }
+
+  if (item.referenceName) {
+    return item.referenceName;
+  }
+
+  if (item.ruleId) {
+    return item.ruleId;
+  }
+
+  return "Tuntematon botti";
+}
+
+function formatDependencyExpectedValue(item) {
+  return item.expectedTriggeredToday
+    ? "True — botti on lauennut tänään"
+    : "False — botti ei ole lauennut tänään";
+}
+
+function formatDependencyPriority(item) {
+  const priority = Number(item.priority ?? 0);
+
+  if (!Number.isFinite(priority) || priority === 0) {
+    return "Prioriteetti: 0 = ei merkitystä";
+  }
+
+  return `Prioriteetti: ${priority}`;
+}
+
+function renderDependencyItem(item, ruleNameMap, depth = 0) {
+  if (!item) {
+    return "";
+  }
+
+  if (item.type === "condition") {
+    const name = getDependencyConditionName(item, ruleNameMap);
+    const expected = formatDependencyExpectedValue(item);
+    const priority = formatDependencyPriority(item);
+    const referenceBadge = item.referenceName && !item.ruleId
+      ? `<span class="dependency-reference-badge">tuleva botti</span>`
+      : `<span class="dependency-reference-badge existing">olemassa oleva</span>`;
+
+    return `
+      <div class="dependency-preview-line dependency-preview-condition depth-${depth}">
+        <div class="dependency-line-main">
+          <span class="dependency-tree-branch">├─</span>
+          <span class="dependency-condition-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+          ${referenceBadge}
+        </div>
+        <div class="dependency-line-sub">
+          ${escapeHtml(expected)} · ${escapeHtml(priority)}
+        </div>
+      </div>
+    `;
+  }
+
+  if (item.type === "group") {
+    const operator = item.operator === "OR" ? "OR" : "AND";
+    const children = Array.isArray(item.items) ? item.items : [];
+
+    const childrenHtml = children.length > 0
+      ? children.map((child) => renderDependencyItem(child, ruleNameMap, depth + 1)).join("")
+      : `<div class="dependency-preview-empty depth-${depth + 1}">Tyhjä aliryhmä</div>`;
+
+    return `
+      <div class="dependency-preview-group depth-${depth}">
+        <div class="dependency-preview-group-header">
+          <span class="dependency-tree-branch">└─</span>
+          <span class="dependency-group-pill">${escapeHtml(operator)}</span>
+          <span>Aliryhmä</span>
+        </div>
+        <div class="dependency-preview-group-body">
+          ${childrenHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  return "";
+}
+
+function renderDependencyPreview(rule, ruleNameMap) {
+  if (!hasDependency(rule)) {
+    return "";
+  }
+
+  const root = rule.dependency.root;
+  const rootOperator = root.operator === "OR" ? "OR" : "AND";
+  const items = Array.isArray(root.items) ? root.items : [];
+
+  const itemsHtml = items.length > 0
+    ? items.map((item) => renderDependencyItem(item, ruleNameMap, 0)).join("")
+    : `<div class="dependency-preview-empty">Ei riippuvuusehtoja.</div>`;
+
+  return `
+    <div class="dependency-preview">
+      <div class="dependency-preview-title">
+        <span class="dependency-badge">Riippuvuusbotti</span>
+      </div>
+
+      <div class="dependency-root-title">
+        <span class="dependency-group-pill root">${escapeHtml(rootOperator)}</span>
+        <span>Juuriryhmä</span>
+      </div>
+
+      <div class="dependency-preview-body">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+}
 
 export function renderOrderRules(orderRules) {
-  const orderRulesElement = document.getElementById("orderRules");
+  clearOrderColumns();
 
-  if (!orderRulesElement) {
+  const firstColumn = document.getElementById("orderRules");
+
+  if (!firstColumn) {
     return;
   }
-
-  orderRulesElement.innerHTML = "";
 
   if (!orderRules || orderRules.length === 0) {
-    orderRulesElement.textContent = "No OrderBots yet.";
+    firstColumn.textContent = "No OrderBots yet.";
     return;
   }
 
+  const ruleNameMap = createRuleNameMap(orderRules);
+
   orderRules.forEach((rule) => {
+    const column = getRuleColumn(rule);
+    const target = getColumnTarget(column) || firstColumn;
+
     const div = document.createElement("div");
     div.className = "order-rule-card";
 
+    if (hasDependency(rule)) {
+      div.classList.add("dependency-rule-card");
+    }
+
     const scheduleText = formatSchedule(rule.schedule);
     const priceConditionText = formatPriceCondition(rule.priceCondition);
+    const dependencyPreviewHtml = renderDependencyPreview(rule, ruleNameMap);
 
     div.innerHTML = `
-      <div class="market-title">${escapeHtml(rule.name)}</div>
+      <div class="order-card-header">
+        <div class="market-title">${escapeHtml(rule.name)}</div>
+        ${hasDependency(rule) ? `<span class="order-card-mini-badge">Boolean</span>` : ""}
+      </div>
 
       <div class="market-detail">
         <span class="muted">ID:</span> ${escapeHtml(rule.id)}
@@ -144,6 +305,10 @@ export function renderOrderRules(orderRules) {
       </div>
 
       <div class="market-detail">
+        <span class="muted">Asetus 6:</span> Sarake ${escapeHtml(column)}
+      </div>
+
+      <div class="market-detail">
         <span class="muted">Last triggered:</span> ${escapeHtml(rule.runtime?.lastTriggeredDate || "never")}
       </div>
 
@@ -151,7 +316,7 @@ export function renderOrderRules(orderRules) {
         <span class="muted">Decision:</span> ${escapeHtml(rule.runtime?.lastDecision || "n/a")}
       </div>
 
-            <div class="market-detail">
+      <div class="market-detail">
         <span class="muted">Viimeisin tarkistus:</span> ${escapeHtml(formatDateTime(rule.runtime?.lastCheckedAt))}
       </div>
 
@@ -163,12 +328,14 @@ export function renderOrderRules(orderRules) {
         <span class="muted">Syy:</span> ${escapeHtml(rule.runtime?.lastDecisionReason || "n/a")}
       </div>
 
+      ${dependencyPreviewHtml}
+
       <button class="danger-button" data-delete-order-rule-id="${escapeHtml(rule.id)}">
         Poista OrderBotti
       </button>
     `;
 
-    orderRulesElement.appendChild(div);
+    target.appendChild(div);
   });
 }
 
@@ -216,10 +383,6 @@ function formatPriceCondition(priceCondition) {
   return `Tuntematon price-ehto: ${priceCondition.mode}`;
 }
 
-
-
-
-
 export function renderTradingMode(tradingMode) {
   const banner = document.getElementById("tradingModeBanner");
 
@@ -245,7 +408,6 @@ export function renderActiveOrderBudget(activeOrderBudget) {
   element.textContent =
     `${activeOrderBudget.activeTotalUsdc} / ${activeOrderBudget.maxDailyBuyAmount} USDC`;
 }
-
 
 function formatDateTime(value) {
   if (!value) {
