@@ -837,5 +837,5 @@ export function startOrderScheduler() {
     runOrderSchedulerOnce().catch((error) => {
       addLog(`Order scheduler error: ${error.message}`);
     });
-  }, 5 * 60 * 1000);
+  }, 1 * 60 * 1000);
 }
