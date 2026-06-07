@@ -46,6 +46,10 @@ function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function roundToThreeDecimals(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+}
+
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -162,6 +166,14 @@ function isTimeRuleSatisfied(rule, nowParts) {
   };
 }
 
+function formatPrice(value) {
+  if (value === null || value === undefined) {
+    return "n/a";
+  }
+
+  return roundToThreeDecimals(value);
+}
+
 function isPriceConditionSatisfied(rule, price) {
   const priceCondition = rule.priceCondition || {
     enabled: false,
@@ -175,40 +187,97 @@ function isPriceConditionSatisfied(rule, price) {
     };
   }
 
-  const currentPrice = roundToTwoDecimals(price);
-  const targetPrice = roundToTwoDecimals(priceCondition.targetPrice);
+  const currentPrice = roundToThreeDecimals(price);
+  const mode = priceCondition.mode;
 
-  if (priceCondition.mode === "above") {
+  if (mode === "above") {
+    const targetPrice = roundToThreeDecimals(priceCondition.targetPrice);
+
     if (currentPrice >= targetPrice) {
       return {
         ok: true,
-        reason: `Price ${currentPrice} >= ${targetPrice}`,
+        reason: `Price ${formatPrice(currentPrice)} >= ${formatPrice(targetPrice)}`,
       };
     }
 
     return {
       ok: false,
-      reason: `Price ${currentPrice} is below target ${targetPrice}`,
+      reason: `Price ${formatPrice(currentPrice)} is below target ${formatPrice(targetPrice)}`,
     };
   }
 
-  if (priceCondition.mode === "below") {
+  if (mode === "below") {
+    const targetPrice = roundToThreeDecimals(priceCondition.targetPrice);
+
     if (currentPrice <= targetPrice) {
       return {
         ok: true,
-        reason: `Price ${currentPrice} <= ${targetPrice}`,
+        reason: `Price ${formatPrice(currentPrice)} <= ${formatPrice(targetPrice)}`,
       };
     }
 
     return {
       ok: false,
-      reason: `Price ${currentPrice} is above target ${targetPrice}`,
+      reason: `Price ${formatPrice(currentPrice)} is above target ${formatPrice(targetPrice)}`,
+    };
+  }
+
+  if (mode === "between") {
+    const minPrice = roundToThreeDecimals(priceCondition.minPrice);
+    const maxPrice = roundToThreeDecimals(priceCondition.maxPrice);
+
+    if (currentPrice >= minPrice && currentPrice <= maxPrice) {
+      return {
+        ok: true,
+        reason: `${formatPrice(minPrice)} <= Price ${formatPrice(currentPrice)} <= ${formatPrice(maxPrice)}`,
+      };
+    }
+
+    return {
+      ok: false,
+      reason: `Price ${formatPrice(currentPrice)} is outside range ${formatPrice(minPrice)}-${formatPrice(maxPrice)}`,
+    };
+  }
+
+  if (mode === "outside") {
+    const minPrice = roundToThreeDecimals(priceCondition.minPrice);
+    const maxPrice = roundToThreeDecimals(priceCondition.maxPrice);
+
+    if (currentPrice <= minPrice || currentPrice >= maxPrice) {
+      return {
+        ok: true,
+        reason: `Price ${formatPrice(currentPrice)} is outside range: <= ${formatPrice(minPrice)} OR >= ${formatPrice(maxPrice)}`,
+      };
+    }
+
+    return {
+      ok: false,
+      reason: `Price ${formatPrice(currentPrice)} is inside blocked range ${formatPrice(minPrice)}-${formatPrice(maxPrice)}`,
+    };
+  }
+
+  if (mode === "exact") {
+    const targetPrice = roundToThreeDecimals(priceCondition.targetPrice);
+    const tolerance = roundToThreeDecimals(priceCondition.tolerance ?? 0.005);
+    const minPrice = roundToThreeDecimals(priceCondition.minPrice ?? targetPrice - tolerance);
+    const maxPrice = roundToThreeDecimals(priceCondition.maxPrice ?? targetPrice + tolerance);
+
+    if (currentPrice >= minPrice && currentPrice <= maxPrice) {
+      return {
+        ok: true,
+        reason: `Price ${formatPrice(currentPrice)} matches exact target ${formatPrice(targetPrice)} ± ${formatPrice(tolerance)}`,
+      };
+    }
+
+    return {
+      ok: false,
+      reason: `Price ${formatPrice(currentPrice)} does not match exact target ${formatPrice(targetPrice)} ± ${formatPrice(tolerance)}`,
     };
   }
 
   return {
     ok: false,
-    reason: `Unknown price condition mode: ${priceCondition.mode}`,
+    reason: `Unknown price condition mode: ${mode}`,
   };
 }
 
@@ -541,8 +610,13 @@ async function evaluateRule(rule, nowParts, allRules) {
   const timeDecision = isTimeRuleSatisfied(rule, nowParts);
 
   if (!timeDecision.ok) {
+    const decision =
+      timeDecision.reason === "Already triggered today"
+        ? "ALREADY_TRIGGERED"
+        : "NO_TRADE";
+
     updateOrderRuleCheckResult(rule.id, {
-      decision: "NO_TRADE",
+      decision,
       reason: timeDecision.reason,
       price: null,
     });

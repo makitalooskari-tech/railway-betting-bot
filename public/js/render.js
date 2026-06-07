@@ -321,7 +321,7 @@ export function renderOrderRules(orderRules) {
       </div>
 
       <div class="market-detail">
-        <span class="muted">Viimeisin hinta:</span> ${escapeHtml(rule.runtime?.lastPrice ?? "n/a")}
+        <span class="muted">Viimeisin hinta:</span> ${escapeHtml(formatLastPrice(rule.runtime?.lastPrice))}
       </div>
 
       <div class="market-detail">
@@ -367,20 +367,54 @@ function formatSchedule(schedule) {
   return `Tuntematon aikaehto: ${schedule.type}`;
 }
 
+function formatPriceNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return "n/a";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return String(value);
+  }
+
+  return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
+
 function formatPriceCondition(priceCondition) {
   if (!priceCondition || !priceCondition.enabled || priceCondition.mode === "none") {
     return "Älä käytä";
   }
 
   if (priceCondition.mode === "above") {
-    return `Price >= ${priceCondition.targetPrice}`;
+    return `Price >= ${formatPriceNumber(priceCondition.targetPrice)}`;
   }
 
   if (priceCondition.mode === "below") {
-    return `Price <= ${priceCondition.targetPrice}`;
+    return `Price <= ${formatPriceNumber(priceCondition.targetPrice)}`;
+  }
+
+  if (priceCondition.mode === "between") {
+    return `${formatPriceNumber(priceCondition.minPrice)} <= Price <= ${formatPriceNumber(priceCondition.maxPrice)}`;
+  }
+
+  if (priceCondition.mode === "outside") {
+    return `Price <= ${formatPriceNumber(priceCondition.minPrice)} OR Price >= ${formatPriceNumber(priceCondition.maxPrice)}`;
+  }
+
+  if (priceCondition.mode === "exact") {
+    return `Price ≈ ${formatPriceNumber(priceCondition.targetPrice)} ± ${formatPriceNumber(priceCondition.tolerance ?? 0.005)}`;
   }
 
   return `Tuntematon price-ehto: ${priceCondition.mode}`;
+}
+
+function formatLastPrice(value) {
+  if (value === null || value === undefined || value === "") {
+    return "ei haettu";
+  }
+
+  return formatPriceNumber(value);
 }
 
 export function renderTradingMode(tradingMode) {

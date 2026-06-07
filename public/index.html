@@ -124,20 +124,63 @@
             <option value="none">Älä käytä</option>
             <option value="above">Hinta ylittää tai on yhtä suuri</option>
             <option value="below">Hinta alittaa tai on yhtä suuri</option>
+            <option value="between">Hinta on välillä</option>
+            <option value="outside">Hinta on alueen ulkopuolella</option>
+            <option value="exact">Tarkka hinta</option>
           </select>
         </label>
 
-        <label>
+        <label id="targetPriceField">
           <span>Tavoitehinta</span>
           <input
             id="orderTargetPrice"
             type="number"
             min="0"
             max="1"
-            step="0.01"
+            step="0.001"
             value="0.70"
           />
         </label>
+
+        <label id="minPriceField">
+          <span>Alaraja</span>
+          <input
+            id="orderMinPrice"
+            type="number"
+            min="0"
+            max="1"
+            step="0.001"
+            value="0.45"
+          />
+        </label>
+
+        <label id="maxPriceField">
+          <span>Yläraja</span>
+          <input
+            id="orderMaxPrice"
+            type="number"
+            min="0"
+            max="1"
+            step="0.001"
+            value="0.55"
+          />
+        </label>
+
+        <label id="priceToleranceField">
+          <span>Toleranssi tarkalle hinnalle</span>
+          <input
+            id="orderPriceTolerance"
+            type="number"
+            min="0"
+            max="0.1"
+            step="0.001"
+            value="0.005"
+          />
+        </label>
+
+        <p class="setting-help-text">
+          Tarkka hinta käyttää kaavaa: tavoitehinta ± toleranssi.
+        </p>
       </div>
 
       <div class="form-group">
@@ -154,93 +197,93 @@
       </div>
 
       <div class="form-group">
-  <h3>Asetus 4: Summa</h3>
+        <h3>Asetus 4: Summa</h3>
 
-  <label>
-    <span>Ostosumma</span>
-    <select id="orderAmountPreset">
-      <option value="1">1 $</option>
-      <option value="2">2 $</option>
-      <option value="3">3 $</option>
-      <option value="4">4 $</option>
-      <option value="5" selected>5 $</option>
-      <option value="6">6 $</option>
-      <option value="7">7 $</option>
-      <option value="8">8 $</option>
-      <option value="9">9 $</option>
-      <option value="10">10 $</option>
-      <option value="custom">Määritä itse</option>
-    </select>
-  </label>
+        <label>
+          <span>Ostosumma</span>
+          <select id="orderAmountPreset">
+            <option value="1">1 $</option>
+            <option value="2">2 $</option>
+            <option value="3">3 $</option>
+            <option value="4">4 $</option>
+            <option value="5" selected>5 $</option>
+            <option value="6">6 $</option>
+            <option value="7">7 $</option>
+            <option value="8">8 $</option>
+            <option value="9">9 $</option>
+            <option value="10">10 $</option>
+            <option value="custom">Määritä itse</option>
+          </select>
+        </label>
 
-  <div class="amount-custom-box">
-    <label>
-      <span>Määritä itse -tapa</span>
-      <select id="orderAmountCustomMode">
-        <option value="manual">Vaihtoehto A — itse määritetty ostosumma</option>
-        <option value="ratio">Vaihtoehto B — automaattinen suhde kokonaispanoksesta</option>
-      </select>
-    </label>
+        <div class="amount-custom-box">
+          <label>
+            <span>Määritä itse -tapa</span>
+            <select id="orderAmountCustomMode">
+              <option value="manual">Vaihtoehto A — itse määritetty ostosumma</option>
+              <option value="ratio">Vaihtoehto B — automaattinen suhde kokonaispanoksesta</option>
+            </select>
+          </label>
 
-    <div id="amountOptionA" class="amount-option-box">
-      <h4>Vaihtoehto A</h4>
+          <div id="amountOptionA" class="amount-option-box">
+            <h4>Vaihtoehto A</h4>
 
-      <label>
-        <span>Itse määritelty ostosumma</span>
-        <input
-          id="orderAmountCustom"
-          type="number"
-          min="1"
-          max="10"
-          step="0.01"
-          value="5.00"
-        />
-      </label>
-    </div>
+            <label>
+              <span>Itse määritelty ostosumma</span>
+              <input
+                id="orderAmountCustom"
+                type="number"
+                min="1"
+                max="10"
+                step="0.01"
+                value="5.00"
+              />
+            </label>
+          </div>
 
-    <div id="amountOptionB" class="amount-option-box">
-      <h4>Vaihtoehto B</h4>
+          <div id="amountOptionB" class="amount-option-box">
+            <h4>Vaihtoehto B</h4>
 
-      <p class="setting-help-text">
-        Automaattinen suhde kokonaispanoksesta. Laskukaava:
-        tavoitehinta × panos = ostosumma.
-      </p>
+            <p class="setting-help-text">
+              Automaattinen suhde kokonaispanoksesta. Laskukaava:
+              tavoitehinta × panos = ostosumma.
+            </p>
 
-      <label>
-        <span>Panos</span>
-        <input
-          id="orderAmountRatioStake"
-          type="number"
-          min="1"
-          max="1000"
-          step="0.01"
-          value="5.00"
-        />
-      </label>
+            <label>
+              <span>Panos</span>
+              <input
+                id="orderAmountRatioStake"
+                type="number"
+                min="1"
+                max="1000"
+                step="0.01"
+                value="5.00"
+              />
+            </label>
 
-      <button type="button" id="calculateRatioAmountButton" class="secondary-button">
-        Laske
-      </button>
+            <button type="button" id="calculateRatioAmountButton" class="secondary-button">
+              Laske
+            </button>
 
-      <label>
-        <span>Laskettu ostosumma</span>
-        <input
-          id="orderAmountRatioResult"
-          type="number"
-          min="1"
-          max="10"
-          step="0.01"
-          value=""
-          readonly
-        />
-      </label>
+            <label>
+              <span>Laskettu ostosumma</span>
+              <input
+                id="orderAmountRatioResult"
+                type="number"
+                min="1"
+                max="10"
+                step="0.01"
+                value=""
+                readonly
+              />
+            </label>
 
-      <p id="orderAmountRatioInfo" class="setting-help-text">
-        Esim. tavoitehinta 0.50 × panos 5.00 = ostosumma 2.50.
-      </p>
-    </div>
-  </div>
-</div>
+            <p id="orderAmountRatioInfo" class="setting-help-text">
+              Esim. tavoitehinta 0.50 × panos 5.00 = ostosumma 2.50.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div class="form-group dependency-card">
         <h3>Asetus 5: Riippuvuus</h3>
@@ -389,6 +432,7 @@
           </template>
         </div>
       </div>
+
       <div class="form-group">
         <h3>Asetus 6: Kuvakkeiden asettelu</h3>
 
@@ -424,56 +468,53 @@
 
   <h2>OrderBotit</h2>
 
-<section class="order-board-section">
-  <div class="order-board-columns">
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 1 otsikko" />
-      <div class="order-column-body" id="orderColumn1">
-        <div class="panel order-column-panel" id="orderRules">
-          Ei OrderBotteja vielä.
+  <section class="order-board-section">
+    <div class="order-board-columns">
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 1 otsikko" />
+        <div class="order-column-body" id="orderColumn1">
+          <div class="panel order-column-panel" id="orderRules">
+            Ei OrderBotteja vielä.
+          </div>
         </div>
       </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 2 otsikko" />
+        <div class="order-column-body" id="orderColumn2"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 3 otsikko" />
+        <div class="order-column-body" id="orderColumn3"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 4 otsikko" />
+        <div class="order-column-body" id="orderColumn4"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 5 otsikko" />
+        <div class="order-column-body" id="orderColumn5"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 6 otsikko" />
+        <div class="order-column-body" id="orderColumn6"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 7 otsikko" />
+        <div class="order-column-body" id="orderColumn7"></div>
+      </div>
+
+      <div class="order-board-column">
+        <input class="column-title-input" type="text" placeholder="Sarake 8 otsikko" />
+        <div class="order-column-body" id="orderColumn8"></div>
+      </div>
     </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 2 otsikko" />
-      <div class="order-column-body" id="orderColumn2"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 3 otsikko" />
-      <div class="order-column-body" id="orderColumn3"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 4 otsikko" />
-      <div class="order-column-body" id="orderColumn4"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 5 otsikko" />
-      <div class="order-column-body" id="orderColumn5"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 6 otsikko" />
-      <div class="order-column-body" id="orderColumn6"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 7 otsikko" />
-      <div class="order-column-body" id="orderColumn7"></div>
-    </div>
-
-    <div class="order-board-column">
-      <input class="column-title-input" type="text" placeholder="Sarake 8 otsikko" />
-      <div class="order-column-body" id="orderColumn8"></div>
-    </div>
-  </div>
-</section>
-
-
-
+  </section>
 
   <div class="controls">
     <button id="runBotButton">Run bot once</button>

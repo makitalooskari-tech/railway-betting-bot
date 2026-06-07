@@ -23,6 +23,73 @@ function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+/* -----------------------------
+   Price condition helpers
+----------------------------- */
+
+function getPriceConditionMode() {
+  return document.getElementById("orderPriceConditionMode")?.value || "none";
+}
+
+function showElement(element, shouldShow) {
+  if (!element) {
+    return;
+  }
+
+  element.style.display = shouldShow ? "flex" : "none";
+}
+
+function updatePriceConditionFields() {
+  const mode = getPriceConditionMode();
+
+  const targetPriceField = document.getElementById("targetPriceField");
+  const minPriceField = document.getElementById("minPriceField");
+  const maxPriceField = document.getElementById("maxPriceField");
+  const priceToleranceField = document.getElementById("priceToleranceField");
+
+  const usesTargetPrice =
+    mode === "above" ||
+    mode === "below" ||
+    mode === "exact";
+
+  const usesRange =
+    mode === "between" ||
+    mode === "outside";
+
+  const usesTolerance = mode === "exact";
+
+  showElement(targetPriceField, usesTargetPrice);
+  showElement(minPriceField, usesRange);
+  showElement(maxPriceField, usesRange);
+  showElement(priceToleranceField, usesTolerance);
+}
+
+function setupPriceConditionControls() {
+  const modeSelect = document.getElementById("orderPriceConditionMode");
+
+  if (modeSelect) {
+    modeSelect.addEventListener("change", updatePriceConditionFields);
+  }
+
+  updatePriceConditionFields();
+}
+
+function getPriceConditionDataFromForm() {
+  const mode = getPriceConditionMode();
+
+  return {
+    priceConditionMode: mode,
+    targetPrice: Number(document.getElementById("orderTargetPrice")?.value),
+    minPrice: Number(document.getElementById("orderMinPrice")?.value),
+    maxPrice: Number(document.getElementById("orderMaxPrice")?.value),
+    tolerance: Number(document.getElementById("orderPriceTolerance")?.value),
+  };
+}
+
+/* -----------------------------
+   Amount helpers
+----------------------------- */
+
 function calculateRatioAmount() {
   const targetPrice = Number(document.getElementById("orderTargetPrice").value);
   const stake = Number(document.getElementById("orderAmountRatioStake").value);
@@ -560,6 +627,7 @@ export async function handleSearchPolymarketMarkets() {
 
 export async function handleCreateOrderRule() {
   const dependency = getDependencyDataFromForm();
+  const priceConditionData = getPriceConditionDataFromForm();
 
   const orderRuleData = {
     name: document.getElementById("orderRuleName").value,
@@ -574,13 +642,12 @@ export async function handleCreateOrderRule() {
     startTimeFi: document.getElementById("orderStartTimeFi").value,
     endTimeFi: document.getElementById("orderEndTimeFi").value,
 
-    priceConditionMode: document.getElementById("orderPriceConditionMode").value,
-    targetPrice: Number(document.getElementById("orderTargetPrice").value),
+    ...priceConditionData,
 
     dependency,
   };
 
-    try {
+  try {
     await createOrderRuleApi(orderRuleData);
 
     const pendingReferenceSelect = document.getElementById("pendingReferenceNameSelect");
@@ -619,8 +686,6 @@ export async function handleRunOrderSchedulerOnce() {
   }
 }
 
-
-
 function setupAmountControls() {
   const calculateButton = document.getElementById("calculateRatioAmountButton");
   const customModeSelect = document.getElementById("orderAmountCustomMode");
@@ -646,8 +711,7 @@ function setupAmountControls() {
   }
 }
 
-
-
 setupDependencyControls();
 setupPendingReferenceNameControl();
 setupAmountControls();
+setupPriceConditionControls();

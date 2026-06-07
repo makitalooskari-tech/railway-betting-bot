@@ -1,14 +1,13 @@
-
-
-
 import { MAX_DAILY_BUY_AMOUNT } from "./config.js";
 import { addLog } from "./logger.js";
+
 import {
   loadOrderRulesFromFile,
   saveOrderRulesToFile,
 } from "./order-storage.js";
 
 let orderRules = loadOrderRulesFromFile();
+
 function persistOrderRules() {
   saveOrderRulesToFile(orderRules);
 }
@@ -21,6 +20,10 @@ function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function roundToThreeDecimals(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+}
+
 function hasMaxTwoDecimals(value) {
   const text = String(value);
 
@@ -31,6 +34,18 @@ function hasMaxTwoDecimals(value) {
   const decimals = text.split(".")[1];
 
   return decimals.length <= 2;
+}
+
+function hasMaxThreeDecimals(value) {
+  const text = String(value);
+
+  if (!text.includes(".")) {
+    return true;
+  }
+
+  const decimals = text.split(".")[1];
+
+  return decimals.length <= 3;
 }
 
 function normalizeText(value) {
@@ -191,12 +206,51 @@ function normalizeSchedule(input) {
   };
 }
 
+function normalizePriceNumber(rawValue, fieldName) {
+  const value = Number(rawValue);
+
+  if (!Number.isFinite(value)) {
+    throw new Error(`${fieldName} must be a valid number`);
+  }
+
+  if (value < 0 || value > 1) {
+    throw new Error(`${fieldName} must be between 0.000 and 1.000`);
+  }
+
+  if (!hasMaxThreeDecimals(rawValue)) {
+    throw new Error(`${fieldName} can have max three decimals`);
+  }
+
+  return roundToThreeDecimals(value);
+}
+
+function normalizeTolerance(rawValue) {
+  const value = Number(rawValue);
+
+  if (!Number.isFinite(value)) {
+    throw new Error("tolerance must be a valid number");
+  }
+
+  if (value < 0 || value > 0.1) {
+    throw new Error("tolerance must be between 0.000 and 0.100");
+  }
+
+  if (!hasMaxThreeDecimals(rawValue)) {
+    throw new Error("tolerance can have max three decimals");
+  }
+
+  return roundToThreeDecimals(value);
+}
+
 function normalizePriceCondition(input) {
   /*
     Asetus 2:
     - none = älä käytä
     - above = price >= targetPrice
     - below = price <= targetPrice
+    - between = minPrice <= price <= maxPrice
+    - outside = price <= minPrice OR price >= maxPrice
+    - exact = targetPrice - tolerance <= price <= targetPrice + tolerance
   */
 
   const rawMode =
@@ -207,8 +261,12 @@ function normalizePriceCondition(input) {
 
   const mode = rawMode;
 
-  if (!["none", "above", "below"].includes(mode)) {
-    throw new Error("price condition mode must be none, above or below");
+  const allowedModes = ["none", "above", "below", "between", "outside", "exact"];
+
+  if (!allowedModes.includes(mode)) {
+    throw new Error(
+      "price condition mode must be none, above, below, between, outside or exact"
+    );
   }
 
   if (mode === "none") {
@@ -218,43 +276,91 @@ function normalizePriceCondition(input) {
       targetPrice: null,
       minPrice: null,
       maxPrice: null,
+      tolerance: null,
       trigger: null,
     };
   }
 
-  const rawTarget =
-    input.targetPrice ??
-    input.priceTarget ??
-    input.priceCondition?.targetPrice ??
-    input.priceCondition?.trigger;
+  if (mode === "above" || mode === "below") {
+    const rawTarget =
+      input.targetPrice ??
+      input.priceTarget ??
+      input.priceCondition?.targetPrice ??
+      input.priceCondition?.trigger;
 
-  const targetPrice = Number(rawTarget);
+    const targetPrice = normalizePriceNumber(rawTarget, "targetPrice");
 
-  if (!Number.isFinite(targetPrice)) {
-    throw new Error("targetPrice must be a valid number");
+    return {
+      enabled: true,
+      mode,
+      targetPrice,
+
+      // Compatibility fields for older scheduler logic.
+      minPrice: mode === "above" ? targetPrice : null,
+      maxPrice: mode === "below" ? targetPrice : null,
+
+      tolerance: null,
+      trigger: mode === "above" ? "price_above_or_equal" : "price_below_or_equal",
+    };
   }
 
-  if (targetPrice < 0 || targetPrice > 1) {
-    throw new Error("targetPrice must be between 0.00 and 1.00");
+  if (mode === "between" || mode === "outside") {
+    const rawMinPrice =
+      input.minPrice ??
+      input.priceCondition?.minPrice;
+
+    const rawMaxPrice =
+      input.maxPrice ??
+      input.priceCondition?.maxPrice;
+
+    const minPrice = normalizePriceNumber(rawMinPrice, "minPrice");
+    const maxPrice = normalizePriceNumber(rawMaxPrice, "maxPrice");
+
+    if (minPrice >= maxPrice) {
+      throw new Error("minPrice must be lower than maxPrice");
+    }
+
+    return {
+      enabled: true,
+      mode,
+      targetPrice: null,
+      minPrice,
+      maxPrice,
+      tolerance: null,
+      trigger: mode === "between" ? "price_between" : "price_outside",
+    };
   }
 
-  if (!hasMaxTwoDecimals(rawTarget)) {
-    throw new Error("targetPrice can have max two decimals");
+  if (mode === "exact") {
+    const rawTarget =
+      input.targetPrice ??
+      input.priceTarget ??
+      input.priceCondition?.targetPrice;
+
+    const rawTolerance =
+      input.tolerance ??
+      input.priceTolerance ??
+      input.priceCondition?.tolerance ??
+      0.005;
+
+    const targetPrice = normalizePriceNumber(rawTarget, "targetPrice");
+    const tolerance = normalizeTolerance(rawTolerance);
+
+    const minPrice = Math.max(0, roundToThreeDecimals(targetPrice - tolerance));
+    const maxPrice = Math.min(1, roundToThreeDecimals(targetPrice + tolerance));
+
+    return {
+      enabled: true,
+      mode,
+      targetPrice,
+      minPrice,
+      maxPrice,
+      tolerance,
+      trigger: "price_exact",
+    };
   }
 
-  const roundedTarget = roundToTwoDecimals(targetPrice);
-
-  return {
-    enabled: true,
-    mode,
-    targetPrice: roundedTarget,
-
-    // Compatibility fields for older scheduler logic.
-    minPrice: mode === "above" ? roundedTarget : null,
-    maxPrice: mode === "below" ? roundedTarget : null,
-
-    trigger: mode === "above" ? "price_above_or_equal" : "price_below_or_equal",
-  };
+  throw new Error(`Unknown price condition mode: ${mode}`);
 }
 
 function validateRuleCombination(schedule, priceCondition) {
@@ -272,9 +378,6 @@ function normalizeDependency(input) {
       root: null,
     };
   }
-
-
-
 
   function normalizeDependencyItem(item) {
     if (!item || typeof item !== "object") {
@@ -322,7 +425,6 @@ function normalizeDependency(input) {
     return null;
   }
 
-
   const rootOperator =
     normalizeText(dependency.root.operator).toUpperCase() === "OR" ? "OR" : "AND";
 
@@ -347,10 +449,6 @@ function normalizeDependency(input) {
   };
 }
 
-
-
-
-
 function normalizeDisplay(input) {
   const rawColumn =
     input.displayColumn ??
@@ -371,13 +469,6 @@ function normalizeDisplay(input) {
   };
 }
 
-
-
-
-
-
-
-
 function getActiveOrderRulesTotalUsdc() {
   return orderRules
     .filter((rule) => rule.enabled && !rule.runtime?.completed)
@@ -395,8 +486,6 @@ function validateActiveOrderRulesBudget(newAmountUsdc) {
   }
 }
 
-
-
 export function getOrderRules() {
   return orderRules;
 }
@@ -406,8 +495,8 @@ export function createOrderRule(input) {
   const marketQuery = normalizeMarketQuery(input);
   const outcome = normalizeOutcome(input.outcome);
   const amountUsdc = normalizeAmount(input.amountUsdc ?? input.buyAmount);
-  validateActiveOrderRulesBudget(amountUsdc);
 
+  validateActiveOrderRulesBudget(amountUsdc);
 
   const schedule = normalizeSchedule(input);
   const priceCondition = normalizePriceCondition(input);
@@ -431,14 +520,12 @@ export function createOrderRule(input) {
       usdc: amountUsdc,
     },
 
-    
-
     schedule,
 
     priceCondition,
 
     dependency,
-    
+
     display,
 
     runtime: {
@@ -505,7 +592,7 @@ export function stopAllOrderRules() {
     },
   }));
 
-   persistOrderRules();
+  persistOrderRules();
   addLog("All order rules disabled");
 
   return orderRules;
@@ -531,17 +618,12 @@ export function markOrderRuleTriggered(id, dateKey) {
     addLog(`Order rule completed after one-shot trigger: ${rule.name}`);
   }
 
-
-
-
   persistOrderRules();
 
   addLog(`Order rule marked triggered: ${rule.name}, date=${dateKey}`);
 
   return rule;
 }
-
-
 
 export function getActiveOrderRulesBudgetStatus() {
   const activeTotalUsdc = getActiveOrderRulesTotalUsdc();
@@ -555,7 +637,6 @@ export function getActiveOrderRulesBudgetStatus() {
     ),
   };
 }
-
 
 export function updateOrderRuleCheckResult(id, checkResult) {
   const rule = orderRules.find((item) => item.id === id);
@@ -574,5 +655,3 @@ export function updateOrderRuleCheckResult(id, checkResult) {
 
   return rule;
 }
-
-
