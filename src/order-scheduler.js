@@ -42,10 +42,6 @@ function getFinlandTimeParts(date = new Date()) {
   };
 }
 
-function roundToTwoDecimals(value) {
-  return Math.round(Number(value) * 100) / 100;
-}
-
 function roundToThreeDecimals(value) {
   return Math.round(Number(value) * 1000) / 1000;
 }
@@ -60,6 +56,10 @@ function hasRuleAlreadyTriggeredToday(rule, nowParts) {
 
 function isRuleCompleted(rule) {
   return Boolean(rule.runtime?.completed);
+}
+
+function isListenerRule(rule) {
+  return Number(rule.amount?.usdc) === 0;
 }
 
 function isTimeRuleSatisfied(rule, nowParts) {
@@ -682,6 +682,38 @@ async function evaluateRule(rule, nowParts, allRules) {
       ruleName: rule.name,
       price: priceInfo.price,
       reason: priceDecision.reason,
+    };
+  }
+
+  if (isListenerRule(rule)) {
+    const reason =
+      `${timeDecision.reason}; ` +
+      `${dependencyDecision.reason}; ` +
+      `${priceDecision.reason}; ` +
+      "Kuuntelijabotti laukesi, ostoa ei tehty";
+
+    markOrderRuleTriggered(rule.id, nowParts.dateKey);
+
+    updateOrderRuleCheckResult(rule.id, {
+      decision: "SIGNAL_TRIGGERED",
+      reason,
+      price: priceInfo.price,
+    });
+
+    addLog(`Signal bot triggered: ${rule.name}, price=${priceInfo.price}`);
+
+    return {
+      triggered: true,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      mode: "SIGNAL",
+      price: priceInfo.price,
+      amountUsdc: 0,
+      result: {
+        ok: true,
+        action: "SIGNAL_TRIGGERED",
+      },
+      reason,
     };
   }
 

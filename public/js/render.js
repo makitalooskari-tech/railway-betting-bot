@@ -268,6 +268,7 @@ export function renderOrderRules(orderRules) {
 
     const scheduleText = formatSchedule(rule.schedule);
     const priceConditionText = formatPriceCondition(rule.priceCondition);
+    const amountText = formatAmount(rule.amount?.usdc);
     const dependencyPreviewHtml = renderDependencyPreview(rule, ruleNameMap);
 
     div.innerHTML = `
@@ -301,7 +302,7 @@ export function renderOrderRules(orderRules) {
       </div>
 
       <div class="market-detail">
-        <span class="muted">Asetus 4:</span> ${escapeHtml(rule.amount?.usdc || "n/a")} USDC
+        <span class="muted">Asetus 4:</span> ${escapeHtml(amountText)}
       </div>
 
       <div class="market-detail">
@@ -407,6 +408,20 @@ function formatPriceCondition(priceCondition) {
   }
 
   return `Tuntematon price-ehto: ${priceCondition.mode}`;
+}
+
+function formatAmount(value) {
+  const amount = Number(value);
+
+  if (Number.isFinite(amount) && amount === 0) {
+    return "Kuuntelijabotti — 0 USDC";
+  }
+
+  if (!Number.isFinite(amount)) {
+    return "n/a";
+  }
+
+  return `${amount} USDC`;
 }
 
 function formatLastPrice(value) {

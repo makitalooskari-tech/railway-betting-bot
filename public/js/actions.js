@@ -121,6 +121,10 @@ function calculateRatioAmount() {
 function getSelectedOrderAmount() {
   const preset = document.getElementById("orderAmountPreset").value;
 
+  if (preset === "listener") {
+    return 0;
+  }
+
   if (preset !== "custom") {
     return Number(preset);
   }

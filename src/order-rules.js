@@ -86,8 +86,8 @@ function normalizeAmount(amount) {
     throw new Error("amountUsdc must be a valid number");
   }
 
-  if (value < 1 || value > 10) {
-    throw new Error("amountUsdc must be between 1.00 and 10.00");
+  if (value < 0 || value > 10) {
+    throw new Error("amountUsdc must be between 0.00 and 10.00");
   }
 
   if (!hasMaxTwoDecimals(amount)) {
