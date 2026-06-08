@@ -882,5 +882,5 @@ export function startOrderScheduler() {
       .finally(() => {
         schedulerRunning = false;
       });
-  }, 10 * 1000);
+  }, 1 * 1000);
 }

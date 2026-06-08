@@ -90,7 +90,33 @@ function getPriceConditionDataFromForm() {
    Amount helpers
 ----------------------------- */
 
+function getAmountPreset() {
+  return String(document.getElementById("orderAmountPreset")?.value || "").trim();
+}
+
+function isListenerAmountSelected() {
+  return getAmountPreset() === "listener";
+}
+
+function setListenerAmountInfo() {
+  const resultInput = document.getElementById("orderAmountRatioResult");
+  const info = document.getElementById("orderAmountRatioInfo");
+
+  if (resultInput) {
+    resultInput.value = "0.00";
+  }
+
+  if (info) {
+    info.textContent = "Kuuntelijabotti ei käytä panosta eikä tee ostoa.";
+  }
+}
+
 function calculateRatioAmount() {
+  if (isListenerAmountSelected()) {
+    setListenerAmountInfo();
+    return 0;
+  }
+
   const targetPrice = Number(document.getElementById("orderTargetPrice").value);
   const stake = Number(document.getElementById("orderAmountRatioStake").value);
   const resultInput = document.getElementById("orderAmountRatioResult");
@@ -119,7 +145,7 @@ function calculateRatioAmount() {
 }
 
 function getSelectedOrderAmount() {
-  const preset = document.getElementById("orderAmountPreset").value;
+  const preset = getAmountPreset();
 
   if (preset === "listener") {
     return 0;
@@ -148,6 +174,26 @@ function getSelectedOrderAmount() {
   }
 
   return Number(document.getElementById("orderAmountCustom").value);
+}
+
+function updateAmountModeInfo() {
+  const preset = getAmountPreset();
+  const resultInput = document.getElementById("orderAmountRatioResult");
+  const info = document.getElementById("orderAmountRatioInfo");
+
+  if (preset === "listener") {
+    setListenerAmountInfo();
+    return;
+  }
+
+  if (resultInput) {
+    resultInput.value = "";
+  }
+
+  if (info) {
+    info.textContent =
+      "Esim. tavoitehinta 0.50 × panos 5.00 = ostosumma 2.50.";
+  }
 }
 
 /* -----------------------------
@@ -693,26 +739,28 @@ export async function handleRunOrderSchedulerOnce() {
 function setupAmountControls() {
   const calculateButton = document.getElementById("calculateRatioAmountButton");
   const customModeSelect = document.getElementById("orderAmountCustomMode");
+  const amountPresetSelect = document.getElementById("orderAmountPreset");
 
   if (calculateButton) {
-    calculateButton.addEventListener("click", calculateRatioAmount);
+    calculateButton.addEventListener("click", () => {
+      if (isListenerAmountSelected()) {
+        setListenerAmountInfo();
+        return;
+      }
+
+      calculateRatioAmount();
+    });
   }
 
   if (customModeSelect) {
-    customModeSelect.addEventListener("change", () => {
-      const resultInput = document.getElementById("orderAmountRatioResult");
-      const info = document.getElementById("orderAmountRatioInfo");
-
-      if (resultInput) {
-        resultInput.value = "";
-      }
-
-      if (info) {
-        info.textContent =
-          "Esim. tavoitehinta 0.50 × panos 5.00 = ostosumma 2.50.";
-      }
-    });
+    customModeSelect.addEventListener("change", updateAmountModeInfo);
   }
+
+  if (amountPresetSelect) {
+    amountPresetSelect.addEventListener("change", updateAmountModeInfo);
+  }
+
+  updateAmountModeInfo();
 }
 
 setupDependencyControls();
