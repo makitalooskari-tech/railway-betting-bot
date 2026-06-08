@@ -862,12 +862,25 @@ export async function runOrderSchedulerOnce() {
   };
 }
 
+let schedulerRunning = false;
+
 export function startOrderScheduler() {
   addLog("Order scheduler started");
 
   setInterval(() => {
-    runOrderSchedulerOnce().catch((error) => {
-      addLog(`Order scheduler error: ${error.message}`);
-    });
-  }, 1 * 60 * 1000);
+    if (schedulerRunning) {
+      addLog("Order scheduler skipped: previous run still running");
+      return;
+    }
+
+    schedulerRunning = true;
+
+    runOrderSchedulerOnce()
+      .catch((error) => {
+        addLog(`Order scheduler error: ${error.message}`);
+      })
+      .finally(() => {
+        schedulerRunning = false;
+      });
+  }, 10 * 1000);
 }
