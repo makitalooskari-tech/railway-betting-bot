@@ -259,8 +259,12 @@ function isPriceConditionSatisfied(rule, price) {
   if (mode === "exact") {
     const targetPrice = roundToThreeDecimals(priceCondition.targetPrice);
     const tolerance = roundToThreeDecimals(priceCondition.tolerance ?? 0.005);
-    const minPrice = roundToThreeDecimals(priceCondition.minPrice ?? targetPrice - tolerance);
-    const maxPrice = roundToThreeDecimals(priceCondition.maxPrice ?? targetPrice + tolerance);
+    const minPrice = roundToThreeDecimals(
+      priceCondition.minPrice ?? targetPrice - tolerance
+    );
+    const maxPrice = roundToThreeDecimals(
+      priceCondition.maxPrice ?? targetPrice + tolerance
+    );
 
     if (currentPrice >= minPrice && currentPrice <= maxPrice) {
       return {
@@ -434,7 +438,9 @@ function evaluateDependencyGroup(group, currentRule, allRules, nowParts, context
 
   return {
     ok: false,
-    reason: `Dependency OR failed: ${results.map((result) => result.reason).join(" | ")}`,
+    reason: `Dependency OR failed: ${results
+      .map((result) => result.reason)
+      .join(" | ")}`,
   };
 }
 

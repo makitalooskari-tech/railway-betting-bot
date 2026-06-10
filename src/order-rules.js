@@ -87,14 +87,14 @@ function normalizeAmount(amount) {
   }
 
   if (value < 0 || value > 10) {
-    throw new Error("amountUsdc must be between 0.00 and 10.00");
+    throw new Error("amountUsdc must be between 0.000 and 10.000");
   }
 
-  if (!hasMaxTwoDecimals(amount)) {
-    throw new Error("amountUsdc can have max two decimals");
+  if (!hasMaxThreeDecimals(amount)) {
+    throw new Error("amountUsdc can have max three decimals");
   }
 
-  return roundToTwoDecimals(value);
+  return roundToThreeDecimals(value);
 }
 
 function normalizeTimeFi(timeFi, fieldName = "timeFi") {

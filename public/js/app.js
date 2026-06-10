@@ -7,31 +7,123 @@ import {
   handleDeleteOrderRule,
 } from "./actions.js";
 
-document.getElementById("runBotButton").addEventListener("click", handleRunBotOnce);
+function addClickListener(id, handler) {
+  const element = document.getElementById(id);
 
-document
-  .getElementById("searchMarketsButton")
-  .addEventListener("click", handleSearchPolymarketMarkets);
+  if (!element) {
+    return;
+  }
 
-document
-  .getElementById("polymarketSearchInput")
-  .addEventListener("keydown", (event) => {
+  element.addEventListener("click", handler);
+}
+
+function setupAlgorithmModeUi() {
+  const algorithmCreateMode = document.getElementById("algorithmCreateMode");
+
+  if (!algorithmCreateMode) {
+    return;
+  }
+
+  const settingSelectorsToDisableWhenAlgorithmMode = [
+    "#orderScheduleType",
+    "#orderTimeFi",
+    "#orderStartTimeFi",
+    "#orderEndTimeFi",
+
+    "#orderPriceConditionMode",
+    "#orderTargetPrice",
+    "#orderMinPrice",
+    "#orderMaxPrice",
+    "#orderPriceTolerance",
+
+    "#orderOutcome",
+
+    "#orderAmountPreset",
+    "#orderAmountCustomMode",
+    "#orderAmountCustom",
+    "#orderAmountRatioStake",
+    "#calculateRatioAmountButton",
+    "#orderAmountRatioResult",
+
+    "#dependencyMode",
+    "#dependencyRootOperator",
+    "#addDependencyCondition",
+    "#addDependencyGroup",
+    "#undoDependencyItem",
+  ];
+
+  const settingCardsToDimWhenAlgorithmMode = [
+    "Asetus 1: Aika",
+    "Asetus 2: Hinta",
+    "Asetus 3: Puoli",
+    "Asetus 4: Summa",
+    "Asetus 5: Riippuvuus",
+  ];
+
+  function findSettingCardByHeadingText(headingText) {
+    const headings = Array.from(document.querySelectorAll(".form-group h3"));
+
+    const heading = headings.find((item) => item.textContent.trim() === headingText);
+
+    if (!heading) {
+      return null;
+    }
+
+    return heading.closest(".form-group");
+  }
+
+  function updateAlgorithmModeUi() {
+    const isFullAlgorithmMode = algorithmCreateMode.value === "full_algorithm";
+
+    for (const selector of settingSelectorsToDisableWhenAlgorithmMode) {
+      const element = document.querySelector(selector);
+
+      if (!element) {
+        continue;
+      }
+
+      element.disabled = isFullAlgorithmMode;
+    }
+
+    for (const headingText of settingCardsToDimWhenAlgorithmMode) {
+      const card = findSettingCardByHeadingText(headingText);
+
+      if (!card) {
+        continue;
+      }
+
+      card.classList.toggle("algorithm-disabled-setting", isFullAlgorithmMode);
+    }
+  }
+
+  algorithmCreateMode.addEventListener("change", updateAlgorithmModeUi);
+  updateAlgorithmModeUi();
+}
+
+const runBotButton = document.getElementById("runBotButton");
+
+if (runBotButton) {
+  runBotButton.addEventListener("click", handleRunBotOnce);
+}
+
+const searchMarketsButton = document.getElementById("searchMarketsButton");
+
+if (searchMarketsButton) {
+  searchMarketsButton.addEventListener("click", handleSearchPolymarketMarkets);
+}
+
+const polymarketSearchInput = document.getElementById("polymarketSearchInput");
+
+if (polymarketSearchInput) {
+  polymarketSearchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       handleSearchPolymarketMarkets();
     }
   });
-
- const createOrderRuleButton = document.getElementById("createOrderRuleButton");
-
-if (createOrderRuleButton) {
-  createOrderRuleButton.addEventListener("click", handleCreateOrderRule);
 }
 
-const runOrderSchedulerButton = document.getElementById("runOrderSchedulerButton");
-
-if (runOrderSchedulerButton) {
-  runOrderSchedulerButton.addEventListener("click", handleRunOrderSchedulerOnce);
-}
+addClickListener("createOrderRuleButton", handleCreateOrderRule);
+addClickListener("runOrderSchedulerButton", handleRunOrderSchedulerOnce);
 
 document.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-delete-order-rule-id]");
@@ -44,8 +136,7 @@ document.addEventListener("click", (event) => {
   handleDeleteOrderRule(id);
 });
 
-
-
+setupAlgorithmModeUi();
 
 loadStatus();
 setInterval(loadStatus, 3000);

@@ -455,6 +455,48 @@
           Oletuksena uusi OrderBotti tulostuu sarakkeeseen 1.
         </p>
       </div>
+
+      <div class="form-group algorithm-card">
+        <h3>Asetus 7: Luo algoritmi</h3>
+
+        <label>
+          <span>Algoritmin luonti</span>
+          <select id="algorithmCreateMode">
+            <option value="single" selected>Luo vain yksi OrderBotti</option>
+            <option value="full_algorithm">Luo koko algoritmi</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Algoritmin kokonaispanos</span>
+          <input
+            id="algorithmStake"
+            type="number"
+            min="0.001"
+            max="1000"
+            step="0.001"
+            value="10.000"
+          />
+        </label>
+
+        <label>
+          <span>Stop-lossit</span>
+          <select id="algorithmStopLossMode">
+            <option value="enabled" selected>Käytä stop-loss-botteja</option>
+            <option value="disabled">Älä käytä stop-loss-botteja</option>
+          </select>
+        </label>
+
+        <label class="checkbox-label">
+          <input id="algorithmUseExtraStops" type="checkbox" />
+          <span>Lisää ylimääräiset 70/1 UP/DOWN vastin-stop-lossit</span>
+        </label>
+
+        <p class="setting-help-text">
+          Kun koko algoritmi luodaan, asetukset 1–5 ohitetaan. Perustiedot määrittävät markkinan,
+          Asetus 6 määrittää sarakkeen ja tämä panos laskee bottien ostosummat automaattisesti.
+        </p>
+      </div>
     </div>
 
     <div class="controls">

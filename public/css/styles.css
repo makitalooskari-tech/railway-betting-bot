@@ -750,3 +750,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 #priceToleranceField {
   display: none;
 }
+
+.algorithm-disabled-setting {
+  opacity: 0.45;
+}
