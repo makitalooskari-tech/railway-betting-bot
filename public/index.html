@@ -468,6 +468,14 @@
         </label>
 
         <label>
+          <span>Algoritmityyppi</span>
+          <select id="algorithmType">
+            <option value="revenge_75" selected>75REVENGE</option>
+            <option value="palikka_haavi">Haavi Palikka Haavi</option>
+          </select>
+        </label>
+
+        <label>
           <span>Algoritmin kokonaispanos</span>
           <input
             id="algorithmStake"
@@ -477,6 +485,15 @@
             step="0.001"
             value="10.000"
           />
+        </label>
+
+        <label>
+          <span>Haavi Palikka Haavi -versio</span>
+          <select id="palikkaHaaviMode">
+            <option value="upper" selected>Haavi Palikka Haavi</option>
+            <option value="lower">Haavi Palikka Haavi käänteinen</option>
+            <option value="both">Haavi Palikka Haavi + käänteinen</option>
+          </select>
         </label>
 
         <label>
@@ -493,8 +510,9 @@
         </label>
 
         <p class="setting-help-text">
-          Kun koko algoritmi luodaan, asetukset 1–5 ohitetaan. Perustiedot määrittävät markkinan,
-          Asetus 6 määrittää sarakkeen ja tämä panos laskee bottien ostosummat automaattisesti.
+          Kun koko algoritmi luodaan, asetukset 2–5 ohitetaan. Perustiedot määrittävät markkinan,
+          Asetus 1 antaa kaikille algoritmikorteille samat aikaehdot, Asetus 6 määrittää sarakkeen
+          ja tämä panos laskee bottien ostosummat automaattisesti.
         </p>
       </div>
     </div>

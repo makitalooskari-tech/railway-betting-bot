@@ -17,6 +17,12 @@ import {
   renderActiveOrderBudget,
 } from "./render.js";
 
+import {
+  buildAlgorithmOrderRules,
+  getAlgorithmLabel,
+  getSelectedMarketPrefix,
+} from "./algorithm-generators.js";
+
 let latestOrderRules = [];
 
 function roundToTwoDecimals(value) {
@@ -637,22 +643,15 @@ function setupDependencyControls() {
 }
 
 /* -----------------------------
-   Algorithm generator helpers
+   Algorithm generator form helpers
 ----------------------------- */
 
 function getAlgorithmCreateMode() {
   return document.getElementById("algorithmCreateMode")?.value || "single";
 }
 
-function getSelectedMarketPrefix(marketQuery) {
-  const value = String(marketQuery || "").toUpperCase();
-
-  if (value.includes("BTC")) return "BTC";
-  if (value.includes("ETH")) return "ETH";
-  if (value.includes("SOL")) return "SOL";
-  if (value.includes("XRP")) return "XRP";
-
-  return "MARKET";
+function getAlgorithmType() {
+  return document.getElementById("algorithmType")?.value || "revenge_75";
 }
 
 function getAlgorithmStakeFromForm() {
@@ -675,280 +674,34 @@ function isAlgorithmStopLossEnabled() {
   return document.getElementById("algorithmStopLossMode")?.value !== "disabled";
 }
 
-function futureDependencyCondition(referenceName, expectedTriggeredToday, priority = 0) {
-  return {
-    type: "condition",
-    referenceType: "future",
-    ruleId: null,
-    referenceName,
-    expectedTriggeredToday,
-    priority,
-  };
+function getPalikkaHaaviMode() {
+  return document.getElementById("palikkaHaaviMode")?.value || "upper";
 }
 
-function andDependency(...items) {
-  const filteredItems = items.filter(Boolean);
 
-  if (filteredItems.length === 0) {
-    return {
-      enabled: false,
-      root: null,
-    };
+function formatPalikkaHaaviMode(mode) {
+  if (mode === "lower") {
+    return "Haavi Palikka Haavi käänteinen";
   }
 
-  return {
-    enabled: true,
-    root: {
-      type: "group",
-      operator: "AND",
-      items: filteredItems,
-    },
-  };
-}
-
-function noDependency() {
-  return {
-    enabled: false,
-    root: null,
-  };
-}
-
-function createExactPriceAlgorithmRule({
-  name,
-  marketQuery,
-  outcome,
-  targetPrice,
-  tolerance = 0.01,
-  amountUsdc,
-  displayColumn,
-  dependency = noDependency(),
-}) {
-  return {
-    name,
-    marketQuery,
-    outcome,
-    displayColumn,
-
-    amountUsdc: roundToThreeDecimals(amountUsdc),
-
-    scheduleType: "none",
-    timeFi: "06:00",
-    startTimeFi: "07:30",
-    endTimeFi: "12:00",
-
-    priceConditionMode: "exact",
-    targetPrice,
-    minPrice: 0,
-    maxPrice: 1,
-    tolerance,
-
-    dependency,
-  };
-}
-
-function createAlgorithmRuleNames(prefix) {
-  return {
-    listener50: `${prefix} Kuuntelija 50 UP`,
-
-    up75: `${prefix} 75 UP`,
-    down75: `${prefix} 75 DOWN`,
-
-    oneUp: `${prefix} 1 UP`,
-    oneDown: `${prefix} 1 DOWN`,
-
-    revenge37Up: `Revenge ${prefix} 37.5 UP`,
-    revenge37Down: `Revenge ${prefix} 37.5 DOWN`,
-
-    revenge50Up: `Revenge ${prefix} 50 UP`,
-    revenge50Down: `Revenge ${prefix} 50 DOWN`,
-
-    stopLossRevenge75Up: `StopLoss_Revenge ${prefix} 75 UP`,
-    stopLossRevenge75Down: `StopLoss_Revenge ${prefix} 75 DOWN`,
-
-    stopLoss50Up: `StopLoss ${prefix} 50 UP`,
-    stopLoss50Down: `StopLoss ${prefix} 50 DOWN`,
-  };
-}
-
-function buildAlgorithmOrderRules({ marketQuery, displayColumn, stake, useStopLoss }) {
-  const prefix = getSelectedMarketPrefix(marketQuery);
-  const names = createAlgorithmRuleNames(prefix);
-
-  const amount75 = roundToThreeDecimals(0.75 * stake);
-  const amount37 = roundToThreeDecimals(0.375 * stake);
-  const amount50 = roundToThreeDecimals(0.5 * stake);
-
-  const listenerTrue = futureDependencyCondition(names.listener50, true);
-
-  const up75True = futureDependencyCondition(names.up75, true);
-  const down75True = futureDependencyCondition(names.down75, true);
-
-  const oneUpFalse = futureDependencyCondition(names.oneUp, false);
-  const oneDownFalse = futureDependencyCondition(names.oneDown, false);
-
-  const revenge37UpTrue = futureDependencyCondition(names.revenge37Up, true);
-  const revenge37DownTrue = futureDependencyCondition(names.revenge37Down, true);
-
-  const revenge50UpFalse = futureDependencyCondition(names.revenge50Up, false);
-  const revenge50DownFalse = futureDependencyCondition(names.revenge50Down, false);
-
-  const stopLossRevenge75UpFalse = futureDependencyCondition(
-    names.stopLossRevenge75Up,
-    false
-  );
-
-  const stopLossRevenge75DownFalse = futureDependencyCondition(
-    names.stopLossRevenge75Down,
-    false
-  );
-
-  const rules = [
-    createExactPriceAlgorithmRule({
-      name: names.listener50,
-      marketQuery,
-      outcome: "UP",
-      targetPrice: 0.5,
-      tolerance: 0.02,
-      amountUsdc: 0,
-      displayColumn,
-      dependency: noDependency(),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.up75,
-      marketQuery,
-      outcome: "UP",
-      targetPrice: 0.75,
-      amountUsdc: amount75,
-      displayColumn,
-      dependency: andDependency(listenerTrue),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.down75,
-      marketQuery,
-      outcome: "DOWN",
-      targetPrice: 0.75,
-      amountUsdc: amount75,
-      displayColumn,
-      dependency: andDependency(listenerTrue),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.oneUp,
-      marketQuery,
-      outcome: "UP",
-      targetPrice: 0.01,
-      tolerance: 0.005,
-      amountUsdc: 1,
-      displayColumn,
-      dependency: andDependency(listenerTrue),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.oneDown,
-      marketQuery,
-      outcome: "DOWN",
-      targetPrice: 0.01,
-      tolerance: 0.005,
-      amountUsdc: 1,
-      displayColumn,
-      dependency: andDependency(listenerTrue),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.revenge37Up,
-      marketQuery,
-      outcome: "UP",
-      targetPrice: 0.375,
-      amountUsdc: amount37,
-      displayColumn,
-      dependency: andDependency(down75True, oneUpFalse),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.revenge37Down,
-      marketQuery,
-      outcome: "DOWN",
-      targetPrice: 0.375,
-      amountUsdc: amount37,
-      displayColumn,
-      dependency: andDependency(up75True, oneDownFalse),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.revenge50Up,
-      marketQuery,
-      outcome: "UP",
-      targetPrice: 0.5,
-      amountUsdc: amount50,
-      displayColumn,
-      dependency: useStopLoss
-        ? andDependency(down75True, oneUpFalse, stopLossRevenge75DownFalse)
-        : andDependency(down75True, oneUpFalse),
-    }),
-
-    createExactPriceAlgorithmRule({
-      name: names.revenge50Down,
-      marketQuery,
-      outcome: "DOWN",
-      targetPrice: 0.5,
-      amountUsdc: amount50,
-      displayColumn,
-      dependency: useStopLoss
-        ? andDependency(up75True, oneDownFalse, stopLossRevenge75UpFalse)
-        : andDependency(up75True, oneDownFalse),
-    }),
-  ];
-
-  if (useStopLoss) {
-    rules.push(
-      createExactPriceAlgorithmRule({
-        name: names.stopLossRevenge75Up,
-        marketQuery,
-        outcome: "UP",
-        targetPrice: 0.75,
-        amountUsdc: amount75,
-        displayColumn,
-        dependency: andDependency(revenge37DownTrue, revenge50DownFalse),
-      }),
-
-      createExactPriceAlgorithmRule({
-        name: names.stopLossRevenge75Down,
-        marketQuery,
-        outcome: "DOWN",
-        targetPrice: 0.75,
-        amountUsdc: amount75,
-        displayColumn,
-        dependency: andDependency(revenge37UpTrue, revenge50UpFalse),
-      }),
-
-      createExactPriceAlgorithmRule({
-        name: names.stopLoss50Up,
-        marketQuery,
-        outcome: "UP",
-        targetPrice: 0.5,
-        amountUsdc: amount50,
-        displayColumn,
-        dependency: andDependency(down75True, oneUpFalse),
-      }),
-
-      createExactPriceAlgorithmRule({
-        name: names.stopLoss50Down,
-        marketQuery,
-        outcome: "DOWN",
-        targetPrice: 0.5,
-        amountUsdc: amount50,
-        displayColumn,
-        dependency: andDependency(up75True, oneDownFalse),
-      })
-    );
+  if (mode === "both") {
+    return "Haavi Palikka Haavi + käänteinen";
   }
 
-  return rules;
+  return "Haavi Palikka Haavi";
+}
+
+function getScheduleDataFromForm() {
+  return {
+    scheduleType: document.getElementById("orderScheduleType")?.value || "none",
+    timeFi: document.getElementById("orderTimeFi")?.value || "06:00",
+    startTimeFi: document.getElementById("orderStartTimeFi")?.value || "07:30",
+    endTimeFi: document.getElementById("orderEndTimeFi")?.value || "12:00",
+  };
 }
 
 async function handleCreateAlgorithmOrderRules() {
+  const algorithmType = getAlgorithmType();
   const marketQuery = document.getElementById("orderMarketQuery")?.value;
   const displayColumn = Number(document.getElementById("orderDisplayColumn")?.value || 1);
   const stake = getAlgorithmStakeFromForm();
@@ -970,20 +723,46 @@ async function handleCreateAlgorithmOrderRules() {
   }
 
   const useStopLoss = isAlgorithmStopLossEnabled();
+  const palikkaHaaviMode = getPalikkaHaaviMode();
+  const schedule = getScheduleDataFromForm();
 
-  const rules = buildAlgorithmOrderRules({
-    marketQuery,
-    displayColumn,
-    stake,
-    useStopLoss,
-  });
+  let rules;
+
+  try {
+    rules = buildAlgorithmOrderRules({
+      algorithmType,
+      marketQuery,
+      displayColumn,
+      stake,
+      useStopLoss,
+      schedule,
+      palikkaHaaviMode,
+    });
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const tooLargeRule = rules.find((rule) => Number(rule.amountUsdc) > 10);
+
+  if (tooLargeRule) {
+    alert(
+      `Algoritmin kortti ylittää OrderBotin 10 USDC maksimisumman:\n\n` +
+        `${tooLargeRule.name} = ${Number(tooLargeRule.amountUsdc).toFixed(3)} USDC\n\n` +
+        `Pienennä algoritmin kokonaispanosta.`
+    );
+    return;
+  }
 
   const confirmed = confirm(
     `Luodaanko koko algoritmi?\n\n` +
+      `Algoritmi: ${getAlgorithmLabel(algorithmType)}\n` +
       `Markkina: ${getSelectedMarketPrefix(marketQuery)}\n` +
+      `Aikaehto: ${schedule.scheduleType}\n` +
       `Panos: ${stake.toFixed(3)} USDC\n` +
       `Sarakkeelle: ${displayColumn}\n` +
       `Stop-lossit: ${useStopLoss ? "käytössä" : "ei käytössä"}\n` +
+      `Haavi Palikka Haavi -versio: ${formatPalikkaHaaviMode(palikkaHaaviMode)}\n` +
       `Kortteja: ${rules.length}`
   );
 

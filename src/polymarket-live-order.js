@@ -50,6 +50,76 @@ function validateLiveBuyInput({ tokenId, price, amountUsdc, marketTitle, outcome
   };
 }
 
+function getImmediateOrderType() {
+  /*
+    FOK = Fill Or Kill.
+    Tämä on turvallisempi botille kuin GTC, koska botti ei saa jäädä luulemaan
+    "osto onnistui", jos orderi vain postattiin order bookiin mutta ei täyttynyt.
+  */
+  return OrderType.FOK || OrderType.FAK || OrderType.GTC;
+}
+
+function hasResponseError(response) {
+  if (!response) {
+    return true;
+  }
+
+  if (response.success === false) {
+    return true;
+  }
+
+  if (response.error || response.errorMsg) {
+    return true;
+  }
+
+  if (response.status && Number(response.status) >= 400) {
+    return true;
+  }
+
+  const statusText = String(response.status || response.state || "").toLowerCase();
+
+  return (
+    statusText.includes("reject") ||
+    statusText.includes("cancel") ||
+    statusText.includes("fail") ||
+    statusText.includes("error") ||
+    statusText.includes("expired")
+  );
+}
+
+function isOrderExecutionConfirmed(response) {
+  if (hasResponseError(response)) {
+    return false;
+  }
+
+  /*
+    Polymarketin clientin response-muoto voi vaihdella. FOK-orderissa hyväksytty
+    success/orderID-response on käytännössä vahvin saatavilla oleva varmistus tästä
+    synkronisesta kutsusta. Jos API antaa eksplisiittisen matched/filled-statuksen,
+    hyväksytään se myös.
+  */
+  const statusText = String(response.status || response.state || "").toLowerCase();
+
+  if (
+    statusText.includes("match") ||
+    statusText.includes("fill") ||
+    statusText.includes("filled") ||
+    statusText.includes("matched")
+  ) {
+    return true;
+  }
+
+  if (response.success === true && (response.orderID || response.id)) {
+    return true;
+  }
+
+  if (response.orderID || response.id) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function placePolymarketLiveBuyOrder({
   tokenId,
   price,
@@ -70,14 +140,15 @@ export async function placePolymarketLiveBuyOrder({
   });
 
   const size = roundToTwoDecimals(numericAmount / numericPrice);
+  const orderType = getImmediateOrderType();
 
   const { client } = await createPolymarketClient();
 
   addLog(
-    `LIVE BUY ATTEMPT: ${marketTitle}, outcome=${outcome}, price=${numericPrice}, amount=${numericAmount}, size=${size}`
+    `LIVE BUY ATTEMPT: ${marketTitle}, outcome=${outcome}, price=${numericPrice}, amount=${numericAmount}, size=${size}, orderType=${orderType}`
   );
 
-    let response;
+  let response;
 
   try {
     response = await client.createAndPostOrder(
@@ -91,21 +162,36 @@ export async function placePolymarketLiveBuyOrder({
         tickSize: "0.01",
         negRisk: false,
       },
-      OrderType.GTC
+      orderType
     );
 
     addLog(`LIVE BUY RAW RESPONSE: ${JSON.stringify(response)}`);
 
-    if (response?.status && Number(response.status) >= 400) {
+    if (hasResponseError(response)) {
       throw new Error(`Polymarket order rejected: ${JSON.stringify(response)}`);
     }
 
-    if (!response?.orderID && !response?.id) {
-      throw new Error(`Polymarket order missing order id: ${JSON.stringify(response)}`);
+    if (!isOrderExecutionConfirmed(response)) {
+      addLog(
+        `LIVE BUY NOT CONFIRMED: ${marketTitle}, outcome=${outcome}, response=${JSON.stringify(response)}`
+      );
+
+      return {
+        ok: false,
+        action: "LIVE_BUY_NOT_CONFIRMED",
+        reason: "Order was not confirmed as successfully accepted/filled",
+        marketTitle,
+        outcome,
+        tokenId,
+        price: numericPrice,
+        amountUsdc: numericAmount,
+        size,
+        response,
+      };
     }
 
     addLog(
-      `LIVE BUY POSTED: ${marketTitle}, outcome=${outcome}, orderID=${response.orderID || response.id || "n/a"}, status=${response.status || "n/a"}`
+      `LIVE BUY CONFIRMED: ${marketTitle}, outcome=${outcome}, orderID=${response.orderID || response.id || "n/a"}, status=${response.status || response.state || "n/a"}`
     );
   } catch (error) {
     addLog(`LIVE BUY ERROR MESSAGE: ${error.message}`);
@@ -123,13 +209,14 @@ export async function placePolymarketLiveBuyOrder({
 
   return {
     ok: true,
-    action: "LIVE_BUY_POSTED",
+    action: "LIVE_BUY_CONFIRMED",
     marketTitle,
     outcome,
     tokenId,
     price: numericPrice,
     amountUsdc: numericAmount,
     size,
+    orderType,
     response,
   };
 }

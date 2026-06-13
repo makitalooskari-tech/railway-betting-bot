@@ -621,11 +621,25 @@ async function evaluateRule(rule, nowParts, allRules) {
         ? "ALREADY_TRIGGERED"
         : "NO_TRADE";
 
-    updateOrderRuleCheckResult(rule.id, {
-      decision,
-      reason: timeDecision.reason,
-      price: null,
-    });
+    /*
+      Älä ylikirjoita onnistuneen ostotapahtuman korttitietoja heti seuraavalla
+      scheduler-kierroksella, kun one-shot-botti on jo disabled/completed.
+
+      Muuten dashboardissa voi näkyä harhaanjohtavasti:
+      Decision: NO_TRADE / Rule disabled
+      vaikka edellinen oikea tapahtuma oli LIVE_BUY.
+    */
+    const shouldPreservePreviousDecision =
+      timeDecision.reason === "Rule disabled" ||
+      timeDecision.reason === "Rule completed";
+
+    if (!shouldPreservePreviousDecision) {
+      updateOrderRuleCheckResult(rule.id, {
+        decision,
+        reason: timeDecision.reason,
+        price: null,
+      });
+    }
 
     return {
       triggered: false,

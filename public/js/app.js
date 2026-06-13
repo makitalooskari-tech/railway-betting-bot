@@ -25,11 +25,6 @@ function setupAlgorithmModeUi() {
   }
 
   const settingSelectorsToDisableWhenAlgorithmMode = [
-    "#orderScheduleType",
-    "#orderTimeFi",
-    "#orderStartTimeFi",
-    "#orderEndTimeFi",
-
     "#orderPriceConditionMode",
     "#orderTargetPrice",
     "#orderMinPrice",
@@ -53,7 +48,6 @@ function setupAlgorithmModeUi() {
   ];
 
   const settingCardsToDimWhenAlgorithmMode = [
-    "Asetus 1: Aika",
     "Asetus 2: Hinta",
     "Asetus 3: Puoli",
     "Asetus 4: Summa",
