@@ -25,6 +25,7 @@ import {
 import { testPolymarketAuthConfig } from "./polymarket-auth.js";
 import { getTradingMode } from "./trading-mode.js";
 import { getDailyBudgetStatus } from "./order-daily-budget.js";
+import { MAX_BUY_AMOUNT } from "./config.js";
 
 
 
@@ -246,6 +247,9 @@ app.get("/api/status", (req, res) => {
     logs: getLogs(),
     polymarketResults: getLatestPolymarketResults(),
     orderRules: getOrderRules(),
+    limits: {
+      maxBuyAmount: MAX_BUY_AMOUNT,
+    },
     
   });
 });

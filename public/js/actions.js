@@ -24,6 +24,7 @@ import {
 } from "./algorithm-generators.js";
 
 let latestOrderRules = [];
+let latestLimits = {};
 
 function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
@@ -743,15 +744,21 @@ async function handleCreateAlgorithmOrderRules() {
     return;
   }
 
-  const tooLargeRule = rules.find((rule) => Number(rule.amountUsdc) > 10);
+  const maxBuyAmount = Number(latestLimits.maxBuyAmount);
 
-  if (tooLargeRule) {
-    alert(
-      `Algoritmin kortti ylittää OrderBotin 10 USDC maksimisumman:\n\n` +
-        `${tooLargeRule.name} = ${Number(tooLargeRule.amountUsdc).toFixed(3)} USDC\n\n` +
-        `Pienennä algoritmin kokonaispanosta.`
+  if (Number.isFinite(maxBuyAmount) && maxBuyAmount > 0) {
+    const tooLargeRule = rules.find(
+      (rule) => Number(rule.amountUsdc) > maxBuyAmount
     );
-    return;
+
+    if (tooLargeRule) {
+      alert(
+        `Algoritmin kortti ylittää OrderBotin ${maxBuyAmount.toFixed(3)} USDC maksimisumman:\n\n` +
+          `${tooLargeRule.name} = ${Number(tooLargeRule.amountUsdc).toFixed(3)} USDC\n\n` +
+          `Nosta MAX_BUY_AMOUNT-variablea tai pienennä algoritmin kokonaispanosta.`
+      );
+      return;
+    }
   }
 
   const confirmed = confirm(
@@ -783,6 +790,7 @@ export async function loadStatus() {
   const data = await fetchStatus();
 
   latestOrderRules = data.orderRules || [];
+  latestLimits = data.limits || {};
 
   renderBotState(data.botState);
   renderTradingMode(data.tradingMode);

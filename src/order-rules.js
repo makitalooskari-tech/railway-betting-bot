@@ -1,4 +1,4 @@
-import { MAX_DAILY_BUY_AMOUNT } from "./config.js";
+import { MAX_BUY_AMOUNT, MAX_DAILY_BUY_AMOUNT } from "./config.js";
 import { addLog } from "./logger.js";
 
 import {
@@ -86,8 +86,8 @@ function normalizeAmount(amount) {
     throw new Error("amountUsdc must be a valid number");
   }
 
-  if (value < 0 || value > 10) {
-    throw new Error("amountUsdc must be between 0.000 and 10.000");
+  if (value < 0 || value > MAX_BUY_AMOUNT) {
+    throw new Error(`amountUsdc must be between 0.000 and ${MAX_BUY_AMOUNT.toFixed(3)}`);
   }
 
   if (!hasMaxThreeDecimals(amount)) {
