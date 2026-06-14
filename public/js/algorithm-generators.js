@@ -492,22 +492,26 @@ export function buildAlgorithmOrderRules({
   useStopLoss,
   schedule,
   palikkaHaaviMode,
+  algorithmTolerance = 0.01,
 }) {
-  if (algorithmType === "palikka_haavi") {
-    return buildPalikkaHaaviAlgorithm({
-      marketQuery,
-      displayColumn,
-      stake,
-      schedule,
-      palikkaHaaviMode,
-    });
-  }
+  const rules = algorithmType === "palikka_haavi"
+    ? buildPalikkaHaaviAlgorithm({
+        marketQuery,
+        displayColumn,
+        stake,
+        schedule,
+        palikkaHaaviMode,
+      })
+    : build75RevengeAlgorithm({
+        marketQuery,
+        displayColumn,
+        stake,
+        useStopLoss,
+        schedule,
+      });
 
-  return build75RevengeAlgorithm({
-    marketQuery,
-    displayColumn,
-    stake,
-    useStopLoss,
-    schedule,
-  });
+  return rules.map((rule) => ({
+    ...rule,
+    tolerance: algorithmTolerance,
+  }));
 }

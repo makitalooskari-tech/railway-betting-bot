@@ -488,6 +488,35 @@
         </label>
 
         <label>
+          <span>Algoritmin toleranssi</span>
+          <select id="algorithmTolerancePreset">
+            <option value="0.01" selected>0.01</option>
+            <option value="0.02">0.02</option>
+            <option value="0.03">0.03</option>
+            <option value="0.04">0.04</option>
+            <option value="0.05">0.05</option>
+            <option value="0.06">0.06</option>
+            <option value="0.07">0.07</option>
+            <option value="0.08">0.08</option>
+            <option value="0.09">0.09</option>
+            <option value="0.10">0.10</option>
+            <option value="custom">Kirjoita itse</option>
+          </select>
+        </label>
+
+        <label id="algorithmToleranceCustomField">
+          <span>Oma toleranssi</span>
+          <input
+            id="algorithmToleranceCustom"
+            type="number"
+            min="0.01"
+            max="0.10"
+            step="0.01"
+            value="0.02"
+          />
+        </label>
+
+        <label>
           <span>Haavi Palikka Haavi -versio</span>
           <select id="palikkaHaaviMode">
             <option value="upper" selected>Haavi Palikka Haavi</option>
@@ -512,7 +541,7 @@
         <p class="setting-help-text">
           Kun koko algoritmi luodaan, asetukset 2–5 ohitetaan. Perustiedot määrittävät markkinan,
           Asetus 1 antaa kaikille algoritmikorteille samat aikaehdot, Asetus 6 määrittää sarakkeen
-          ja tämä panos laskee bottien ostosummat automaattisesti.
+          ja Asetus 7 määrittää panoksen sekä toleranssin kaikille algoritmikorteille.
         </p>
       </div>
     </div>

@@ -94,6 +94,22 @@ function setupAlgorithmModeUi() {
   updateAlgorithmModeUi();
 }
 
+function setupAlgorithmToleranceUi() {
+  const preset = document.getElementById("algorithmTolerancePreset");
+  const customField = document.getElementById("algorithmToleranceCustomField");
+
+  if (!preset || !customField) {
+    return;
+  }
+
+  function update() {
+    customField.style.display = preset.value === "custom" ? "flex" : "none";
+  }
+
+  preset.addEventListener("change", update);
+  update();
+}
+
 const runBotButton = document.getElementById("runBotButton");
 
 if (runBotButton) {
@@ -131,6 +147,7 @@ document.addEventListener("click", (event) => {
 });
 
 setupAlgorithmModeUi();
+setupAlgorithmToleranceUi();
 
 loadStatus();
 setInterval(loadStatus, 3000);

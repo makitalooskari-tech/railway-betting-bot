@@ -667,6 +667,37 @@ function getAlgorithmStakeFromForm() {
   return roundToThreeDecimals(stake);
 }
 
+function hasMaxTwoDecimals(value) {
+  const text = String(value);
+
+  if (!text.includes(".")) {
+    return true;
+  }
+
+  return text.split(".")[1].length <= 2;
+}
+
+function getAlgorithmToleranceFromForm() {
+  const preset = document.getElementById("algorithmTolerancePreset")?.value || "0.01";
+  const rawValue = preset === "custom"
+    ? document.getElementById("algorithmToleranceCustom")?.value
+    : preset;
+
+  const tolerance = Number(rawValue);
+
+  if (!Number.isFinite(tolerance) || tolerance < 0.01 || tolerance > 0.1) {
+    alert("Algoritmin toleranssin pitää olla väliltä 0.01–0.10.");
+    return null;
+  }
+
+  if (!hasMaxTwoDecimals(rawValue)) {
+    alert("Algoritmin toleranssissa saa olla enintään 2 desimaalia.");
+    return null;
+  }
+
+  return roundToTwoDecimals(tolerance);
+}
+
 function isExtraAlgorithmStopsEnabled() {
   return Boolean(document.getElementById("algorithmUseExtraStops")?.checked);
 }
@@ -706,13 +737,14 @@ async function handleCreateAlgorithmOrderRules() {
   const marketQuery = document.getElementById("orderMarketQuery")?.value;
   const displayColumn = Number(document.getElementById("orderDisplayColumn")?.value || 1);
   const stake = getAlgorithmStakeFromForm();
+  const algorithmTolerance = getAlgorithmToleranceFromForm();
 
   if (!marketQuery) {
     alert("Valitse markkinatyyppi ennen algoritmin luontia.");
     return;
   }
 
-  if (stake === null) {
+  if (stake === null || algorithmTolerance === null) {
     return;
   }
 
@@ -738,6 +770,7 @@ async function handleCreateAlgorithmOrderRules() {
       useStopLoss,
       schedule,
       palikkaHaaviMode,
+      algorithmTolerance,
     });
   } catch (error) {
     alert(error.message);
