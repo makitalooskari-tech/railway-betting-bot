@@ -8,6 +8,93 @@ function roundToTwoDecimals(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function roundDownToTwoDecimals(value) {
+  return Math.floor(Number(value) * 100) / 100;
+}
+
+function roundToFourDecimals(value) {
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
+function greatestCommonDivisor(a, b) {
+  let x = Math.abs(Number(a));
+  let y = Math.abs(Number(b));
+
+  while (y !== 0) {
+    const temp = y;
+    y = x % y;
+    x = temp;
+  }
+
+  return x || 1;
+}
+
+function calculateBuyOrderAmounts({ price, requestedAmountUsdc }) {
+  /*
+    Polymarket CLOB accepts:
+    - market buy maker amount with max 2 decimals
+    - taker/share amount with max 4 decimals
+
+    The CLOB client derives makerAmount from price * size. If we only round
+    amountUsdc to 2 decimals and then calculate size normally, price * size can
+    still become something like 31.0474, which Polymarket rejects.
+
+    This function chooses a share size with 4-decimal precision so that
+    price * size is exactly a 2-decimal USDC value. It rounds DOWN, never up,
+    so the bot does not accidentally spend more than the requested amount.
+  */
+
+  const safePrice = roundToTwoDecimals(price);
+  const safeRequestedAmount = roundDownToTwoDecimals(requestedAmountUsdc);
+
+  const priceCents = Math.round(safePrice * 100);
+  const targetSizeUnits = Math.floor((safeRequestedAmount / safePrice) * 10000);
+
+  if (!Number.isFinite(safePrice) || safePrice <= 0) {
+    throw new Error("safePrice must be positive");
+  }
+
+  if (!Number.isFinite(safeRequestedAmount) || safeRequestedAmount <= 0) {
+    throw new Error("safeRequestedAmount must be positive");
+  }
+
+  if (!Number.isInteger(priceCents) || priceCents <= 0) {
+    throw new Error(`Invalid price cents: ${priceCents}`);
+  }
+
+  const denominator = 10000;
+  const gcd = greatestCommonDivisor(priceCents, denominator);
+  const requiredSizeUnitStep = denominator / gcd;
+  const validSizeUnits =
+    Math.floor(targetSizeUnits / requiredSizeUnitStep) * requiredSizeUnitStep;
+
+  if (validSizeUnits <= 0) {
+    throw new Error(
+      `Order amount is too small for valid Polymarket precision at price ${safePrice}`
+    );
+  }
+
+  const size = roundToFourDecimals(validSizeUnits / 10000);
+  const makerAmountUsdc = roundToTwoDecimals(safePrice * size);
+
+  if (makerAmountUsdc <= 0) {
+    throw new Error("Calculated maker amount is too small");
+  }
+
+  if (makerAmountUsdc > safeRequestedAmount) {
+    throw new Error(
+      `Calculated maker amount ${makerAmountUsdc} exceeds requested amount ${safeRequestedAmount}`
+    );
+  }
+
+  return {
+    safePrice,
+    requestedAmountUsdc: safeRequestedAmount,
+    makerAmountUsdc,
+    size,
+  };
+}
+
 function validateLiveBuyInput({ tokenId, price, amountUsdc, marketTitle, outcome }) {
   if (!tokenId) {
     throw new Error("tokenId is required for live order");
@@ -46,7 +133,7 @@ function validateLiveBuyInput({ tokenId, price, amountUsdc, marketTitle, outcome
 
   return {
     numericPrice: roundToTwoDecimals(numericPrice),
-    numericAmount: roundToTwoDecimals(numericAmount),
+    numericAmount: roundDownToTwoDecimals(numericAmount),
   };
 }
 
@@ -139,13 +226,20 @@ export async function placePolymarketLiveBuyOrder({
     outcome,
   });
 
-  const size = roundToTwoDecimals(numericAmount / numericPrice);
+  const orderAmounts = calculateBuyOrderAmounts({
+    price: numericPrice,
+    requestedAmountUsdc: numericAmount,
+  });
+
+  const safePrice = orderAmounts.safePrice;
+  const size = orderAmounts.size;
+  const makerAmountUsdc = orderAmounts.makerAmountUsdc;
   const orderType = getImmediateOrderType();
 
   const { client } = await createPolymarketClient();
 
   addLog(
-    `LIVE BUY ATTEMPT: ${marketTitle}, outcome=${outcome}, price=${numericPrice}, amount=${numericAmount}, size=${size}, orderType=${orderType}`
+    `LIVE BUY ATTEMPT: ${marketTitle}, outcome=${outcome}, price=${safePrice}, requestedAmount=${numericAmount}, makerAmount=${makerAmountUsdc}, size=${size}, orderType=${orderType}`
   );
 
   let response;
@@ -154,7 +248,7 @@ export async function placePolymarketLiveBuyOrder({
     response = await client.createAndPostOrder(
       {
         tokenID: tokenId,
-        price: numericPrice,
+        price: safePrice,
         size,
         side: Side.BUY,
       },
@@ -183,8 +277,9 @@ export async function placePolymarketLiveBuyOrder({
         marketTitle,
         outcome,
         tokenId,
-        price: numericPrice,
-        amountUsdc: numericAmount,
+        price: safePrice,
+        requestedAmountUsdc: numericAmount,
+        amountUsdc: makerAmountUsdc,
         size,
         response,
       };
@@ -213,8 +308,9 @@ export async function placePolymarketLiveBuyOrder({
     marketTitle,
     outcome,
     tokenId,
-    price: numericPrice,
-    amountUsdc: numericAmount,
+    price: safePrice,
+    requestedAmountUsdc: numericAmount,
+    amountUsdc: makerAmountUsdc,
     size,
     orderType,
     response,

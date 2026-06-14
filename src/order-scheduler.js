@@ -830,7 +830,9 @@ async function evaluateRule(rule, nowParts, allRules) {
     };
   }
 
-  recordDailySpend(rule.amount.usdc);
+  const executedAmountUsdc = Number(result?.amountUsdc ?? rule.amount.usdc);
+
+  recordDailySpend(executedAmountUsdc);
   markOrderRuleTriggered(rule.id, nowParts.dateKey);
 
   updateOrderRuleCheckResult(rule.id, {
@@ -845,7 +847,8 @@ async function evaluateRule(rule, nowParts, allRules) {
     ruleName: rule.name,
     mode: tradingMode.mode,
     price: priceInfo.price,
-    amountUsdc: rule.amount.usdc,
+    requestedAmountUsdc: rule.amount.usdc,
+    amountUsdc: executedAmountUsdc,
     result,
     reason: `${timeDecision.reason}; ${dependencyDecision.reason}; ${priceDecision.reason}`,
   };
